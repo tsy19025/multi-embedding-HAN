@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import torch
 
 def load_jsondata_from_file(path):
     data = []
@@ -66,10 +67,10 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     tot_tips = len(tips)
 
     # User(write)Review
-    user_in_review = torch.LongTensor([userid_to_num[r["user_id"]] for r in reviews], requires_grad=False)
-    review_in_review = torch.LongTensor([reviewid_to_num[r["review_id"]] for r in reviews], requires_grad=False)
-    ind = torch.cat([user_in_review, review_in_review], dim=0,requires_grad=False)
-    adj_UwR = torch.sparse.FloatTensor(ind, 1, torch.Size([tot_users, tot_reviews]))
+    user_in_review = torch.LongTensor([userid_to_num[r["user_id"]] for r in reviews])
+    review_in_review = torch.LongTensor([reviewid_to_num[r["review_id"]] for r in reviews])
+    ind = torch.cat([user_in_review.unsqueeze(0), review_in_review.unsqueeze(0)], dim=0)
+    adj_UwR = torch.sparse.FloatTensor(ind, torch.ones(tot_reviews), (tot_users, tot_reviews))
     return adj_UwR
 
 if __name__ == "__main__":
@@ -77,9 +78,9 @@ if __name__ == "__main__":
     business_json = load_jsondata_from_file("../yelp/business.json")
     review_json = load_jsondata_from_file("../yelp/review.json")
     tip_json = load_jsondata_from_file("../yelp/tip.json")
-    userid_to_num, _ = get_id_to_num(user_json, "user_id")
-    businessid_to_num, _ = get_id_to_num(business_json, "business_id")
-    reviewid_to_num, _ = get_id_to_num(business_json, "review_id")
+    usernum_to_id, userid_to_num = get_id_to_num(user_json, "user_id")
+    businessnum_to_id, businessid_to_num = get_id_to_num(business_json, "business_id")
+    reviewnum_to_id, reviewid_to_num = get_id_to_num(review_json, "review_id")
 
     adj = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json)
     print(adj)
