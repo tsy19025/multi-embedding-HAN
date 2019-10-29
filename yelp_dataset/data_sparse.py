@@ -73,10 +73,10 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     return adj_UwR
 
 if __name__ == "__main__":
-    user_json = load_jsondata_from_file("yelp_academic_dataset_user.json")
-    business_json = load_jsondata_from_file("yelp_academic_dataset_business.json")
-    review_json = load_jsondata_from_file("yelp_academic_dataset_review.json")
-    tip_json = load_jsondata_from_file("yelp_academic_dataset_tip.json")
+    user_json = load_jsondata_from_file("../yelp/user.json")
+    business_json = load_jsondata_from_file("../yelp/business.json")
+    review_json = load_jsondata_from_file("../yelp/review.json")
+    tip_json = load_jsondata_from_file("../yelp/tip.json")
     userid_to_num, _ = get_id_to_num(user_json, "user_id")
     businessid_to_num, _ = get_id_to_num(business_json, "business_id")
     reviewid_to_num, _ = get_id_to_num(business_json, "review_id")
