@@ -35,6 +35,7 @@ def get_id_to_num(json_datas, id_name):
             tot = tot +1
     return num_to_id, id_to_num
 
+'''
 def get_graph(userid_to_num, businessid_to_num, reviews, tips):
     tot_users = len(userid_to_num)
     tot_business = len(businessid_to_num)
@@ -57,6 +58,19 @@ def get_graph(userid_to_num, businessid_to_num, reviews, tips):
         adj[user_id][business_id] = 2
         adj[business_id][user_id] = 2
     return adj
+'''
+def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, businesses, reviews, tips):
+    tot_users = len(userid_to_num)
+    tot_business = len(businessid_to_num)
+    tot_reviews = len(reviews)
+    tot_tips = len(tips)
+
+    # User(write)Review
+    user_in_review = torch.LongTensor([userid_to_num[r["user_id"]] for r in reviews], requires_grad=False)
+    review_in_review = torch.LongTensor([reviewid_to_num[r["review_id"]] for r in reviews], requires_grad=False)
+    ind = torch.cat([user_in_review, review_in_review], dim=0,requires_grad=False)
+    adj_UwR = torch.sparse.FloatTensor(ind, 1, torch.Size([tot_users, tot_reviews]))
+    return adj_UwR
 
 if __name__ == "__main__":
     user_json = load_jsondata_from_file("yelp_academic_dataset_user.json")
@@ -65,6 +79,7 @@ if __name__ == "__main__":
     tip_json = load_jsondata_from_file("yelp_academic_dataset_tip.json")
     userid_to_num, _ = get_id_to_num(user_json, "user_id")
     businessid_to_num, _ = get_id_to_num(business_json, "business_id")
+    reviewid_to_num, _ = get_id_to_num(business_json, "review_id")
 
-    adj = get_graph(userid_to_num, businessid_to_num, review_json, tip_json)
+    adj = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json)
     print(adj)
