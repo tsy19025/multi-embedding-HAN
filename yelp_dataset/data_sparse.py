@@ -32,10 +32,17 @@ def get_id_to_num(json_datas, id_name):
     tot = 0
     for data in json_datas:
         data_id = data[id_name]
-        if data_id not in id_to_num:
-            num_to_id.append(data_id)
-            id_to_num[data_id] = tot
-            tot = tot +1
+        if isinstance(data_id, list):
+            for data_iid in data_id:
+                if data_iid not in id_to_num:
+                    num_to_id.append(data_iid)
+                    id_to_num[data_iid] = tot
+                    tot = tot +1
+        else:
+            if data_id not in id_to_num:
+                num_to_id.append(data_id)
+                id_to_num[data_id] = tot
+                tot = tot +1
     return num_to_id, id_to_num
 
 '''
@@ -62,7 +69,7 @@ def get_graph(userid_to_num, businessid_to_num, reviews, tips):
         adj[business_id][user_id] = 2
     return adj
 '''
-def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, businesses, reviews, tips, city_to_num):
+def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, businesses, reviews, tips, city_to_num, cate_to_num):
     tot_users = len(userid_to_num)
     tot_business = len(businessid_to_num)
     tot_reviews = len(reviews)
@@ -72,25 +79,32 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     user_in_review = array([userid_to_num[r["user_id"]] for r in reviews])
     review_in_review = array([reviewid_to_num[r["review_id"]] for r in reviews])
     adj_UwR = sparse.coo_matrix((np.ones(tot_reviews),(user_in_review,review_in_review)),shape=(tot_users,tot_reviews))
-    '''
+    
     # Review(about)Business
-    business_in_review = torch.LongTensor([businessid_to_num[r["business_id"]] for r in reviews])
-    ind = torch.cat([review_in_review.unsqueeze(0), business_in_review.unsqueeze(0)], dim=0)
-    adj_RaB = torch.sparse.FloatTensor(ind, torch.ones(tot_reviews), (tot_reviews, tot_business))
+    business_in_review = array([businessid_to_num[r["business_id"]] for r in reviews])
+    adj_RaB = sparse.coo_matrix((np.ones(tot_reviews),(review_in_review, business_in_review)),shape=(tot_reviews,tot_business))
 
     # User(tip)Business
-    user_in_tip = torch.LongTensor([userid_to_num[r["user_id"]] for r in tips])
-    business_in_tip = torch.LongTensor([businessid_to_num[r["business_id"]] for r in tips])
-    ind = torch.cat([user_in_tip.unsqueeze(0), business_in_tip.unsqueeze(0)], dim=0)
-    adj_RaB = torch.sparse.FloatTensor(ind, torch.ones(tot_tips), (tot_users, tot_business))
+    user_in_tip = array([userid_to_num[r["user_id"]] for r in tips])
+    business_in_tip = array([businessid_to_num[r["business_id"]] for r in tips])
+    adj_UtB = sparse.coo_matrix((np.ones(tot_tips),(user_in_tip, business_in_tip)),shape=(tot_users,tot_business))
 
     # Business(city)Business
-    
+    city_for_busi = array([city_to_num[b["city"]] for b in businesses])
+    B2Csparse = sparse.coo_matrix((np.ones(tot_business),(range(tot_business), city_for_busi)),shape=(tot_business,len(city_to_num)))
+    adj_BcB = B2Csparse.dot(B2Csparse.transpose())
 
     # Business(same category)Business
+    cate_for_busi = array([cate_to_num[cate] for cate in b["categories"] for b in businesses])
+    busi_for_cate = array([businessid_to_num[b] for cate in b["categories"] for b in businesses])
+    adj_B2C = sparse.coo_matrix((np.ones(cate_for_busi.size),(busi_for_cate, cate_for_busi)),shape=(tot_business,len(cate_to_num)))
+    adj_BcateB = adj_B2C.dot(adj_B2C.transpose())
 
     # User(friends)User
-    '''
+    frineds_list = array([userid_to_num[f] for f in u["friends"] for u in users])
+    from_list = array([userid_to_num[u] for f in u["friends"] for u in users])
+    adj_UfU = sparse.coo_matrix((np.ones(from_list.size),(from_list, frineds_list)),shape=(tot_users,tot_users))
+    
     return adj_UwR
 
 if __name__ == "__main__":
@@ -102,6 +116,6 @@ if __name__ == "__main__":
     businessnum_to_id, businessid_to_num = get_id_to_num(business_json, "business_id")
     reviewnum_to_id, reviewid_to_num = get_id_to_num(review_json, "review_id")
     _, city_to_num = get_id_to_num(business_json, "city")
+    _, cate_to_num = get_id_to_num(business_json, "categories")
 
-    adj = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json, city_to_num)
-    print(adj)
+    adj = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json, city_to_num, cate_to_num)
