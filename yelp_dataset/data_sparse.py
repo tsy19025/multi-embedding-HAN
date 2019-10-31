@@ -1,5 +1,7 @@
 import json
 import numpy as np
+from numpy import array
+from scipy import sparse
 import torch
 
 def load_jsondata_from_file(path):
@@ -60,17 +62,35 @@ def get_graph(userid_to_num, businessid_to_num, reviews, tips):
         adj[business_id][user_id] = 2
     return adj
 '''
-def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, businesses, reviews, tips):
+def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, businesses, reviews, tips, city_to_num):
     tot_users = len(userid_to_num)
     tot_business = len(businessid_to_num)
     tot_reviews = len(reviews)
     tot_tips = len(tips)
 
     # User(write)Review
-    user_in_review = torch.LongTensor([userid_to_num[r["user_id"]] for r in reviews])
-    review_in_review = torch.LongTensor([reviewid_to_num[r["review_id"]] for r in reviews])
-    ind = torch.cat([user_in_review.unsqueeze(0), review_in_review.unsqueeze(0)], dim=0)
-    adj_UwR = torch.sparse.FloatTensor(ind, torch.ones(tot_reviews), (tot_users, tot_reviews))
+    user_in_review = array([userid_to_num[r["user_id"]] for r in reviews])
+    review_in_review = array([reviewid_to_num[r["review_id"]] for r in reviews])
+    adj_UwR = sparse.coo_matrix((np.ones(tot_reviews),(user_in_review,user_in_review)),shape=(tot_users,tot_reviews))
+'''
+    # Review(about)Business
+    business_in_review = torch.LongTensor([businessid_to_num[r["business_id"]] for r in reviews])
+    ind = torch.cat([review_in_review.unsqueeze(0), business_in_review.unsqueeze(0)], dim=0)
+    adj_RaB = torch.sparse.FloatTensor(ind, torch.ones(tot_reviews), (tot_reviews, tot_business))
+
+    # User(tip)Business
+    user_in_tip = torch.LongTensor([userid_to_num[r["user_id"]] for r in tips])
+    business_in_tip = torch.LongTensor([businessid_to_num[r["business_id"]] for r in tips])
+    ind = torch.cat([user_in_tip.unsqueeze(0), business_in_tip.unsqueeze(0)], dim=0)
+    adj_RaB = torch.sparse.FloatTensor(ind, torch.ones(tot_tips), (tot_users, tot_business))
+
+    # Business(city)Business
+    
+
+    # Business(same category)Business
+
+    # User(friends)User
+'''
     return adj_UwR
 
 if __name__ == "__main__":
@@ -81,6 +101,7 @@ if __name__ == "__main__":
     usernum_to_id, userid_to_num = get_id_to_num(user_json, "user_id")
     businessnum_to_id, businessid_to_num = get_id_to_num(business_json, "business_id")
     reviewnum_to_id, reviewid_to_num = get_id_to_num(review_json, "review_id")
+    _, city_to_num = get_id_to_num(business_json, "city")
 
-    adj = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json)
+    adj = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json, city_to_num)
     print(adj)
