@@ -71,8 +71,8 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     # User(write)Review
     user_in_review = array([userid_to_num[r["user_id"]] for r in reviews])
     review_in_review = array([reviewid_to_num[r["review_id"]] for r in reviews])
-    adj_UwR = sparse.coo_matrix((np.ones(tot_reviews),(user_in_review,user_in_review)),shape=(tot_users,tot_reviews))
-'''
+    adj_UwR = sparse.coo_matrix((np.ones(tot_reviews),(user_in_review,review_in_review)),shape=(tot_users,tot_reviews))
+    '''
     # Review(about)Business
     business_in_review = torch.LongTensor([businessid_to_num[r["business_id"]] for r in reviews])
     ind = torch.cat([review_in_review.unsqueeze(0), business_in_review.unsqueeze(0)], dim=0)
@@ -90,7 +90,7 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     # Business(same category)Business
 
     # User(friends)User
-'''
+    '''
     return adj_UwR
 
 if __name__ == "__main__":

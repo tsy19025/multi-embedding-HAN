@@ -1,0 +1,22 @@
+[I 00:14:56.092 NotebookApp] Writing notebook server cookie secret to /home1/czb/.local/share/jupyter/runtime/notebook_cookie_secret
+[W 00:14:56.488 NotebookApp] Error loading server extension jupyter_nbextensions_configurator
+    Traceback (most recent call last):
+      File "/home1/czb/anaconda3/envs/torchsparse/lib/python3.7/site-packages/notebook/notebookapp.py", line 1615, in init_server_extensions
+        mod = importlib.import_module(modulename)
+      File "/home1/czb/anaconda3/envs/torchsparse/lib/python3.7/importlib/__init__.py", line 127, in import_module
+        return _bootstrap._gcd_import(name[level:], package, level)
+      File "<frozen importlib._bootstrap>", line 1006, in _gcd_import
+      File "<frozen importlib._bootstrap>", line 983, in _find_and_load
+      File "<frozen importlib._bootstrap>", line 965, in _find_and_load_unlocked
+    ModuleNotFoundError: No module named 'jupyter_nbextensions_configurator'
+[I 00:14:56.497 NotebookApp] Serving notebooks from local directory: /home1/czb/github/multi-embedding-HAN
+[I 00:14:56.497 NotebookApp] The Jupyter Notebook is running at:
+[I 00:14:56.497 NotebookApp] http://dlib-T630:1919/
+[I 00:14:56.497 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[W 00:14:56.502 NotebookApp] No web browser found: could not locate runnable browser.
+[W 00:15:01.778 NotebookApp] Clearing invalid/expired login cookie username-162-105-146-244-1919
+[I 00:15:01.779 NotebookApp] 302 GET /tree? (10.3.174.125) 2.06ms
+[I 00:15:04.804 NotebookApp] 302 POST /login?next=%2Ftree%3F (10.3.174.125) 1.64ms
+[W 00:15:05.229 NotebookApp] 404 GET /nbextensions/nbextensions_configurator/tree_tab/main.js?v=20191101001456 (10.3.174.125) 7.31ms referer=http://162.105.146.244:1919/tree?
+[C 00:15:13.486 NotebookApp] received signal 15, stopping
+[I 00:15:13.487 NotebookApp] Shutting down 0 kernels
