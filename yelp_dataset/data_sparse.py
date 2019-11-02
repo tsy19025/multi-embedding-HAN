@@ -123,6 +123,17 @@ if __name__ == "__main__":
     #print(business_json[0]["categories"])
     #print(user_json[0]["friends"])
 
-    adj = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json, city_to_num, cate_to_num)
-    for a in adj:
-        print(a)
+    adj_UwR, adj_RaB, adj_UtB, adj_BcB, adj_BcateB, adj_UfU = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json, city_to_num, cate_to_num)
+    print("adj get!")
+    
+    UrateB = adj_UwR.dot(adj_RaB)
+    UfUwR = adj_UfU.dot(adj_UwR)
+    UfUrB = adj_UfU.dot(UrateB)
+    #UrBcateB = UrateB.dot(adj_BcateB)
+    UrBcityB = UrateB.dot(adj_BcB)
+    UrateBrateU = UrateB.dot(UrateB.transpose())
+    UtBtU = adj_UtB.dot(adj_UtB.transpose())
+    BrateUrateB = UrateB.transpose().dot(UrateB)
+    #RaBcateBaR = adj_RaB.dot(adj_BcateB).dot(adj_RaB.transpose())
+    RaBcityBaR = adj_RaB.dot(adj_BcityB).dot(adj_RaB.transpose())
+    print("metapath get!")
