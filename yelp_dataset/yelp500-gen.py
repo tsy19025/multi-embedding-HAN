@@ -14,17 +14,12 @@ def load_jsondata_from_file(path):
         #    if tot > 10: break
     return data
 
-def get_feature(jsondata, not_feature_list):
-    # user: ["user_id", "name", "friends", "elite"]
-    # business: ["business_id", "name", "state", "hours"]
-    data_features = []
-    for data in jsondata:
-        features = []
-        for key in data:
-            if key in not_feature_list: continue
-            else: features.append(user[key])
-        data_features.append(features)
-    return data_features
+def save_jsondata_to_file(path, data):
+    with open(path, 'w') as f:
+        for line in data:
+            f.write(json.dumps(line)+"\n")
+
+r_data_scale = 5000000
 
 def get_id_to_num(json_datas, id_name):
     num_to_id = []
@@ -47,35 +42,12 @@ def get_id_to_num(json_datas, id_name):
                 tot = tot +1
     return num_to_id, id_to_num
 
-'''
-def get_graph(userid_to_num, businessid_to_num, reviews, tips):
-    tot_users = len(userid_to_num)
-    tot_business = len(businessid_to_num)
-    n = tot_users + tot_business + len(reviews)
-    adj = np.zeros([n, n])
-    for i in range(len(reviews)):
-        review = reviews[i]
-        user_id = userid_to_num[review["user_id"]]
-        business_id = businessid_to_num[review["business_id"]] + tot_users
-        review_id = tot_users + tot_business + i
-        adj[user_id][review_id] = 1
-        adj[review_id][user_id] = 1
-
-        adj[business_id][review_id] = 3
-        adj[review_id][business_id] = 3
-
-    for tip in tips:
-        user_id = tip["user_id"]
-        business_id = tip["business_id"] + tot_users
-        adj[user_id][business_id] = 2
-        adj[business_id][user_id] = 2
-    return adj
-'''
+# As we limit the scale of review dataset, the USERID, REVIEWID and BUSINESSID should be subsets.
 def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, businesses, reviews, tips, city_to_num, cate_to_num):
     tot_users = len(userid_to_num)
     tot_business = len(businessid_to_num)
     tot_reviews = len(reviews)
-    tot_tips = len(tips)
+    #tot_tips = len(tips)
 
     # User(write)Review
     user_in_review = array([userid_to_num[r["user_id"]] for r in reviews])
@@ -89,7 +61,7 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     # User(tip)Business
     user_in_tip = array([userid_to_num[r["user_id"]] for r in tips])
     business_in_tip = array([businessid_to_num[r["business_id"]] for r in tips])
-    adj_UtB = sparse.coo_matrix((np.ones(tot_tips),(user_in_tip, business_in_tip)),shape=(tot_users,tot_business))
+    adj_UtB = sparse.coo_matrix((np.ones(len(user_in_tip)),(user_in_tip, business_in_tip)),shape=(tot_users,tot_business))
 
     # Business(city)Business
     city_for_busi = array([city_to_num[b["city"]] for b in businesses])
@@ -110,38 +82,50 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     return adj_UwR, adj_RaB, adj_UtB, adj_BcB, adj_BcateB, adj_UfU
 
 if __name__ == "__main__":
-    user_json = load_jsondata_from_file("../yelp/user.json")
-    business_json = load_jsondata_from_file("../yelp/business.json")
-    review_json = load_jsondata_from_file("../yelp/review.json")
-    tip_json = load_jsondata_from_file("../yelp/tip.json")
-    usernum_to_id, userid_to_num = get_id_to_num(user_json, "user_id")
-    businessnum_to_id, businessid_to_num = get_id_to_num(business_json, "business_id")
+    user_json2 = load_jsondata_from_file("../yelp/user.json")
+    business_json2 = load_jsondata_from_file("../yelp/business.json")
+    review_json2 = load_jsondata_from_file("../yelp/review.json")
+    tip_json2 = load_jsondata_from_file("../yelp/tip.json")
+    
+    review_json = review_json2[0:r_data_scale]
     reviewnum_to_id, reviewid_to_num = get_id_to_num(review_json, "review_id")
+    user_filter = [r["user_id"] for r in review_json]
+    business_filter = [r["business_id"] for r in review_json]
+    user_json = [u for u in user_json2 if u["user_id"] in user_filter]
+    business_json = [b for b in business_json2 if b["business_id"] in business_filter]
+    tip_json = [r for r in tip_json2 if (r["user_id"] in user_filter and r["business_id"] in business_filter)]
+    
+    save_jsondata_to_file("../yelp/user-500k.json", user_json)
+    save_jsondata_to_file("../yelp/business-500k.json", business_json)
+    save_jsondata_to_file("../yelp/review-500k.json", review_json)
+    save_jsondata_to_file("../yelp/tip-500k.json", tip_json)
+    del user_filter, business_filter
+    
+    businessnum_to_id, businessid_to_num = get_id_to_num(business_json, "business_id")
+    usernum_to_id, userid_to_num = get_id_to_num(user_json, "user_id")
     _, city_to_num = get_id_to_num(business_json, "city")
     _, cate_to_num = get_id_to_num(business_json, "categories")
-    #print(cate_to_num)
-    #print(business_json[0]["categories"])
-    #print(user_json[0]["friends"])
-
+    print(len(reviewid_to_num), len(businessid_to_num), len(userid_to_num))
+    
     adj_UwR, adj_RaB, adj_UtB, adj_BcB, adj_BcateB, adj_UfU = get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, user_json, business_json, review_json, tip_json, city_to_num, cate_to_num)
     print("adj get!")
     with open('raw_adj', 'w') as f:
         pickle.dump((adj_UwR, adj_RaB, adj_UtB, adj_BcB, adj_BcateB, adj_UfU), f)
-    
+        
     UrateB = adj_UwR.dot(adj_RaB)
     UfUwR = adj_UfU.dot(adj_UwR)
     UfUrB = adj_UfU.dot(UrateB)
-    #UrBcateB = UrateB.dot(adj_BcateB)
-    #UrBcityB = UrateB.dot(adj_BcB)
+    UrBcateB = UrateB.dot(adj_BcateB)
+    UrBcityB = UrateB.dot(adj_BcB)
     UrateBrateU = UrateB.dot(UrateB.transpose())
     UtBtU = adj_UtB.dot(adj_UtB.transpose())
     BrateUrateB = UrateB.transpose().dot(UrateB)
-    #RaBcateBaR = adj_RaB.dot(adj_BcateB).dot(adj_RaB.transpose())
-    #RaBcityBaR = adj_RaB.dot(adj_BcityB).dot(adj_RaB.transpose())
+    RaBcateBaR = adj_RaB.dot(adj_BcateB).dot(adj_RaB.transpose())
+    RaBcityBaR = adj_RaB.dot(adj_BcityB).dot(adj_RaB.transpose())
     UrBrUrB = UrateBrateU.dot(UrateB)
     RaBaR = adj_RaB.dot(adj_RaB.transpose())
     RwUwR = adj_UwR.transpose().dot(adj_UwR)
     print("metapath get!")
 
     with open('path_adj', 'w') as f:
-        pickle.dump((UrateB, UfUwR, UfUrB, UrateBrateU, UtBtU, BrateUrateB, UrBrUrB, RaBaR, RwUwR), f)
+        pickle.dump((UrateB, UfUwR, UfUrB, UrBcateB, UrBcityB, UrateBrateU, UtBtU, BrateUrateB, RaBcateBaR, RaBcityBaR, UrBrUrB, RaBaR, RwUwR), f)
