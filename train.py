@@ -2,6 +2,7 @@ import argparse
 import time
 import math
 import json
+import pickle
 import numpy as np
 from numpy import array
 from scipy import sparse
@@ -16,7 +17,7 @@ from random import sample, random, randint
 from functools import reduce
 import cProfile
 
-from utils import YelpDataset
+from utils import YelpDataset, Metapath
 from yelp_dataset.yelp500_gen import load_jsondata_from_file, get_id_to_num
 
 parser = argparse.ArgumentParser(description='multi-embedding-HAN')
@@ -54,3 +55,8 @@ Yelp500DataLoader = DataLoader(dataset = Yelp500Dataset,
                               pin_memory = True,
                               drop_last = True)
 
+t_names = ('adj_UwR', 'adj_RaB', 'adj_UtB', 'adj_BcB', 'adj_BcateB', 'adj_UfU', 'UrateB', 'UfUwR', 'UfUrB', 'UrBcateB', 'UrBcityB', 'UrateBrateU', 'RaBaR', 'RwUwR')
+Metapath_list = []
+for i in range(len(t_names)):
+    adj = pickle.load("../yelp/adjs/"+t_names[i])
+    Metapath_list.append(Metapath(t_names[i], t_types[i], adj))

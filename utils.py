@@ -26,3 +26,15 @@ class YelpDataset(Dataset):
 
     def __len__(self):
         return self.len
+
+class Metapath():
+    def __init__(self, name, pathtype, adj)
+        # pathtype: 0.user 1.review 2.business
+        self.name = name
+        self.pathtype = pathtype
+        ix = torch.LongTensor(adj.row)
+        iy = torch.LongTensor(adj.col)
+        idata = torch.FloatTensor(adj.data)
+        ixy = torch.cat([ix.unsqueeze(0), iy.unsqueeze(0)], dim = 0)
+        self.adj = torch.sparse.FloatTensor(ixy, idata, adj.shape)
+        
