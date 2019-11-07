@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from layers import GraphAttentionLayer, SparseGraphAttentionLayer
+from utils import Metapath
 
 class GraphAttentionNetwork(nn.Module):
     def __init__(self, input_features, hiddens, outputs, nheads, alpha):
@@ -34,7 +35,21 @@ class SparseGraphAttentionNetwork(nn.Module):
         x = self.attentionend(x, edges)
         x = torch.softmax(x, dim = 1)
         return x
-
+    
+class OneMetapathGAT(nn.Module):
+    def __init__(self, feature_size, the_metapath, nheads, alpha):
+        super(OneMetapathGAT, self).__init__()
+        self.feature_size = feature_size
+        self.the_metapath = the_metapath
+        self.SGAT = SparseGraphAttentionNetwork(feature_size, feature_size, feature_size, nheads, alpha)
+        self.pathtype = the_metapath.pathtype
+        
+    def forward(self, node_features):
+        # node_features: N_node * 3 * feature_size
+        input = node_features[:,self.pathtype]
+        x = self.SGAT(input, self.the_metapath.adj)
+        return x
+        
 if __name__ == '__main__':
     n = 3
     features = 20
