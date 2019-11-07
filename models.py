@@ -9,24 +9,25 @@ class GraphAttentionNetwork(nn.Module):
         self.outputs = outputs
 
         self.layer = nn.Linear(input_features, input_features)
-        self.attentions = [GraphAttentionLayer(input_features, hiddens, alpha) for i in range(nheads)]
-        self.attentionend = GraphAttentionLayer(hiddens * nheads, outputs, alpha)
+        self.attentions = [GraphAttentionLayer(input_features, hiddens, alpha, end = False) for i in range(nheads)]
+        self.attentionend = GraphAttentionLayer(hiddens * nheads, outputs, alpha, end = True)
     def forward(self, input, adj):
-        x = self.layer(input)
-        x = torch.cat([attention(x, adj) for attention in self.attentions], dim = 1)
+        input = self.layer(input)
+        x = torch.cat([attention(input, adj) for attention in self.attentions], dim = 1)
+        print(x.shape)
         x = self.attentionend(x, adj)
         x = torch.softmax(x, dim = 1)
         return x
 
 class SparseGraphAttentionNetwork(nn.Module):
-    class __init__(self, input_features, hiddens, outputs, nheads, alpha):
+    def __init__(self, input_features, hiddens, outputs, nheads, alpha):
         super(SparseGraphAttentionNetwork, self).__init__()
         self.input_features = input_features
         self.outputs = outputs
 
         self.layer = nn.Linear(input_features, input_features)
-        self.attentions = [SparseGraphAttentionLayer(input_features, hiddens, alpha) for i in range(nheads)]
-        self.attentionend = SparseGraphAttentionLayer(hiddens * nheads, outputs, alpha)
+        self.attentions = [SparseGraphAttentionLayer(input_features, hiddens, alpha, end = False) for i in range(nheads)]
+        self.attentionend = SparseGraphAttentionLayer(hiddens * nheads, outputs, alpha, end = True)
     def forward(self, input, edges):
         input = self.layer(input)
         x = torch.cat([attention(input, edges) for attention in self.attentions], dim = 1)
