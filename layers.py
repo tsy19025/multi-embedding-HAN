@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from scipy import sparse
+import torch.autograd.Function as Function
 
-# train weight-matrix W and attention function
 class GraphAttentionLayer(nn.Module):
     def __init__(self, input_features, outputs, alpha):
         super(GraphAttentionLayer, self).__init__()
@@ -26,3 +26,37 @@ class GraphAttentionLayer(nn.Module):
         h = torch.matmul(attention, h)
         return h
 
+class Sparsemm(Function):
+    def forward(ctx, indices, values, shape, b):
+        a = torch.sparse_coo_tensor(indices, values, shape)
+        ctx.save_for_backward(a, b)
+        ctx.n = shape[0]
+        return torch.mm(a, b)
+    def backward(ctx, grad_output):
+        a, b = ctx.save_tensors
+        grad_values = grad_b = None
+        if ctx.needs_input_grad[1]:
+            grad_a_dense = torch.matmul(grad_output, b.t())
+            edge_idx = a._indices()[0, :] * ctx.n + a._indices()[1, :]
+            grad_values = grad_a_dense_view(-1)[edge_idx]
+        if ctx.needs_input_grad[3]:
+            grad_b = torch.matmul(a.t(), grad_output)
+        return None, grad_values, None, grad_b
+
+class SparseGraphAttentionLayer(nn.Module):
+    def __init__(self, input_features, outputs, alpha):
+        super(SparseGraphAttentionLayer, self).__init__()
+        self.sparsemm = Sparsemm()
+    def forward(self, input, edge):
+        n = input.size()[0]
+        h = torch.mm(input, self.W)
+        edge_h = torch.cat((h[edge[0, :], :], h[edge[1, :], :]), dim = 1).t()
+        # size: 2*d*e
+        edge_e = torch.exp(-self.leakrelu(torch.matmul(edge_h, self.a).squeeze()))
+        assert not torch.isnan(edge_e).any()
+
+        e_rowsum = self.sparsemm(edge, edge_e, torch.Size([n, n]), torch.ones(size = (n, 1), device = dv))
+
+        h = self.sparsemm(edge, edge_e, torch.Size([n, n]), h)
+        h = h.div(e_rowsum)
+        return h
