@@ -34,3 +34,23 @@ class SparseGraphAttentionNetwork(nn.Module):
         x = self.attentionend(x, edges)
         x = torch.softmax(x, dim = 1)
         return x
+
+if __name__ == '__main__':
+    n = 3
+    features = 20
+    hiddens = 20
+    outputs = 15
+    adj = [[1, 0, 1], [0, 1, 1], [0, 1, 1]]
+    adj = torch.tensor(adj)
+    edge = torch.tensor([[0, 0, 1, 1, 2, 2], [0, 2, 1, 2, 1, 2]])
+    
+    node_features = torch.rand([n, features])
+    model = GraphAttentionNetwork(features, hiddens, outputs, nheads = 2, alpha = 0.2)
+    output = model(node_features, adj)
+    print("output of GAT: ", output)
+
+    print("-------------------------------------------------")
+
+    model = SparseGraphAttentionNetwork(features, hiddens, outputs, nheads = 2, alpha = 0.2)
+    output = model(node_features, edge)
+    print("output of SparseGAT: ", output)
