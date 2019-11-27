@@ -3,7 +3,8 @@ import numpy as np
 from numpy import array
 from scipy import sparse
 import torch
-from torch import Dataset
+from torch.utils.data import Dataset
+from sklearn.decomposition import NMF
 
 def load_jsondata_from_file(path):
     data = []
@@ -11,6 +12,24 @@ def load_jsondata_from_file(path):
         for line in f:
             data.append(json.loads(line))
     return data
+
+def get_type_embedding(adj, type_feature):
+    def matrix_factorization(Q, n):
+        model = NMF(n_components = n, alpha = 0.01)
+        W = model.fit_transform(Q)
+        return W, model.components_
+
+    W, H = matrix_factorization(adj, type_feature)
+    H = H.T
+    
+    def add_sum(mat):
+        m = len(mat[0])
+        z = np.zeros(m)
+        for line in mat:
+            z = z + line
+        # Softmax
+        return np.exp(z)/sum(np.exp(z))
+    return add_sum(W), add_sum(H)
 
 class YelpDataset(Dataset):
 
@@ -28,7 +47,7 @@ class YelpDataset(Dataset):
         return self.len
 
 class Metapath():
-    def __init__(self, name, pathtype, adj)
+    def __init__(self, name, pathtype, adj):
         # pathtype: 0.user 1.review 2.business
         self.name = name
         self.pathtype = pathtype
