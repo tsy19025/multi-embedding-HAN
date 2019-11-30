@@ -12,7 +12,7 @@ def load_jsondata_from_file(path):
             data.append(json.loads(line))
     return data
 
-def mitrix_factorization(adj_user_review, adj_user_business, adj_review_business, k, lr = 0.001):
+def matrix_factorization(adj_user_review, adj_user_business, adj_review_business, k, lr = 0.001):
     tot_user, tot_review = adj_user_review.shape
     _, tot_business = adj_user_business.shape
     
