@@ -47,30 +47,6 @@ def get_id_to_num(json_datas, id_name):
                 tot = tot +1
     return num_to_id, id_to_num
 
-'''
-def get_graph(userid_to_num, businessid_to_num, reviews, tips):
-    tot_users = len(userid_to_num)
-    tot_business = len(businessid_to_num)
-    n = tot_users + tot_business + len(reviews)
-    adj = np.zeros([n, n])
-    for i in range(len(reviews)):
-        review = reviews[i]
-        user_id = userid_to_num[review["user_id"]]
-        business_id = businessid_to_num[review["business_id"]] + tot_users
-        review_id = tot_users + tot_business + i
-        adj[user_id][review_id] = 1
-        adj[review_id][user_id] = 1
-
-        adj[business_id][review_id] = 3
-        adj[review_id][business_id] = 3
-
-    for tip in tips:
-        user_id = tip["user_id"]
-        business_id = tip["business_id"] + tot_users
-        adj[user_id][business_id] = 2
-        adj[business_id][user_id] = 2
-    return adj
-'''
 def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, businesses, reviews, tips, city_to_num, cate_to_num):
     tot_users = len(userid_to_num)
     tot_business = len(businessid_to_num)
@@ -109,11 +85,14 @@ def get_adj_matrix(userid_to_num, businessid_to_num, reviewid_to_num, users, bus
     
     return adj_UwR, adj_RaB, adj_UtB, adj_BcB, adj_BcateB, adj_UfU
 
-if __name__ == "__main__":
-    user_json = load_jsondata_from_file("../yelp/user.json")
-    business_json = load_jsondata_from_file("../yelp/business.json")
-    review_json = load_jsondata_from_file("../yelp/review.json")
-    tip_json = load_jsondata_from_file("../yelp/tip.json")
+def read_data(datapath, load):
+    if load:
+        # adj_UwR, adj_RaB, adj_UtB, adj_BcB, adj_BcateB, adj_UfU = pickle.load('')
+        return 
+    user_json = load_jsondata_from_file(os.path.join(datapath, "user.json"))
+    business_json = load_jsondata_from_file(os.path.join(datapath, "business.json"))
+    review_json = load_jsondata_from_file(os.path.join(datapath, "review.json"))
+    tip_json = load_jsondata_from_file(os.path.join(datapath, "tip.json"))
     usernum_to_id, userid_to_num = get_id_to_num(user_json, "user_id")
     businessnum_to_id, businessid_to_num = get_id_to_num(business_json, "business_id")
     reviewnum_to_id, reviewid_to_num = get_id_to_num(review_json, "review_id")
@@ -145,3 +124,5 @@ if __name__ == "__main__":
 
     with open('path_adj', 'w') as f:
         pickle.dump((UrateB, UfUwR, UfUrB, UrateBrateU, UtBtU, BrateUrateB, UrBrUrB, RaBaR, RwUwR), f)
+    yelpdataset  = YelpDataset(os.path.join(datapath, "review.json"), reviewid_to_num, userid_to_num, businessid_to_num)
+    return adj_UwR, adj_RaB, adj_UtB, adj_BcB, adj_BcateB, adj_UfU, UrateB, UfUwR, UfUrB, UrateBrateU, UtBtU, BrateUrateB, UrBrUrB, RaBaR, RwUwR, yelpdataset

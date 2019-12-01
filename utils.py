@@ -4,6 +4,7 @@ from numpy import array
 from scipy import sparse
 import torch
 from torch.utils.data import Dataset
+from yelp_dataset.data_sparse import load_jsondata_from_file, get_id_to_num
 
 def load_jsondata_from_file(path):
     data = []
@@ -42,8 +43,17 @@ def matrix_factorization(adj_user_review, adj_user_business, adj_review_business
         
         # print(W_user)
         # print(W_review)
-        # print(W_business)     
-    return W_user, W_review, W_business
+        # print(W_business)
+    def normalize(W):
+        z = np.zeros(W.shape[0])
+        for vector in W:
+            z = z + vector
+        return np.exp(z)/sum(np.exp(z))
+    return normalize(W_user), normalize(W_review), normalize(W_business)
+
+def read_data(path):
+    user_json = load_jsondata_from_file(path + '/')
+    
 
 class YelpDataset(Dataset):
 
