@@ -166,7 +166,7 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
                 adj_UU[friend_id][user_id] = 1
     #relation U-B
     for review in reviews:
-        if (review["user_id"] not in userid_to_num) and (review["business_id"] not in businessid_to_num):
+        if (review["user_id"] not in userid_to_num) or (review["business_id"] not in businessid_to_num):
             continue
         user_id = userid_to_num[review["user_id"]]
         business_id = businessid_to_num[review["business_id"]] + tot_users
@@ -178,11 +178,13 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
             continue
         business_id = businessid_to_num[business["business_id"]] + tot_users
         city_id = cityid_to_num[business["city"]] + tot_users + tot_business
-        category_id = categoryid_to_num[business["categories"]] + tot_users + tot_business + tot_city
         adj_BCi[business_id][city_id] = 1
         adj_BCi[city_id][business_id] = 1
-        adj_BCa[business_id][category_id] = 1
-        adj_BCa[category_id][business_id] = 1
+        for category in business["categories"].split(","):
+            category = category.strip()
+            category_id = categoryid_to_num[category] + tot_users + tot_business + tot_city
+            adj_BCa[business_id][category_id] = 1
+            adj_BCa[category_id][business_id] = 1
     #metapath U_U_B
     adj_UUB = adj_UU.dot(adj_UB)
     adj_UBU = adj_UB.dot(adj_UB.T)
