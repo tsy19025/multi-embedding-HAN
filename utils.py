@@ -4,7 +4,7 @@ from numpy import array
 from scipy import sparse
 import torch
 from torch.utils.data import Dataset
-from sklearn.decomposition import NMF
+from yelp_dataset.data_sparse import load_jsondata_from_file, get_id_to_num
 
 def load_jsondata_from_file(path):
     data = []
@@ -13,23 +13,47 @@ def load_jsondata_from_file(path):
             data.append(json.loads(line))
     return data
 
-def get_type_embedding(adj, type_feature):
-    def matrix_factorization(Q, n):
-        model = NMF(n_components = n, alpha = 0.01)
-        W = model.fit_transform(Q)
-        return W, model.components_
-
-    W, H = matrix_factorization(adj, type_feature)
-    H = H.T
+def matrix_factorization(adj_user_review, adj_user_business, adj_review_business, k, lr = 0.001):
+    tot_user, tot_review = adj_user_review.shape
+    _, tot_business = adj_user_business.shape
     
-    def add_sum(mat):
-        m = len(mat[0])
-        z = np.zeros(m)
-        for line in mat:
-            z = z + line
-        # Softmax
+    W_user = Variable(torch.randn(tot_user, k), requires_grad = True)
+    W_review = Variable(torch.randn(tot_review, k), requires_grad = True)
+    W_business = Variable(torch.randn(tot_business, k), requires_grad = True)
+    
+    old_loss = 0
+    while (True):
+        user_review = W_user.mm(W_review.t())
+        user_business = W_user.mm(W_business.t())
+        review_business = W_review.mm(W_business.t())
+        loss = (user_review - adj_user_review).pow(2).sum() + (user_business - adj_user_business).pow(2).sum() + (review_business - adj_review_business).pow(2).sum()
+
+        # print("loss:{:.4f}".format(loss.data))
+        if abs(loss.data - old_loss) < 1e-5: break
+        old_loss = loss.data
+        loss.backward()
+        
+        W_user.data -= lr * W_user.grad.data
+        W_review.data -= lr * W_review.grad.data
+        W_business.data -= lr * W_business.grad.data
+        
+        W_user.grad.data.zero_()
+        W_review.grad.data.zero_()
+        W_business.grad.data.zero_()
+        
+        # print(W_user)
+        # print(W_review)
+        # print(W_business)
+    def normalize(W):
+        z = np.zeros(W.shape[0])
+        for vector in W:
+            z = z + vector
         return np.exp(z)/sum(np.exp(z))
-    return add_sum(W), add_sum(H)
+    return normalize(W_user), normalize(W_review), normalize(W_business)
+
+def read_data(path):
+    user_json = load_jsondata_from_file(path + '/')
+    
 
 class YelpDataset(Dataset):
 
