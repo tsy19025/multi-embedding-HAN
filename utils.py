@@ -4,7 +4,7 @@ from numpy import array
 from scipy import sparse
 import torch
 from torch.utils.data import Dataset
-from yelp_dataset.data_sparse import load_jsondata_from_file, get_id_to_num
+# from yelp_dataset.data_sparse import load_jsondata_from_file, get_id_to_num
 
 def load_jsondata_from_file(path):
     data = []
