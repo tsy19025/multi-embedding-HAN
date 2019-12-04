@@ -245,14 +245,15 @@ if __name__ == "__main__":
     # train valid test data save
     d = (review_train, review_valid, review_test)
     d_names = ('rate_train', 'rate_valid', 'rate_test')
-    num_all = len(userid_to_num) + len(businessid_to_num) + len(cityid_to_num) + len(categoryid_to_num)
+    # num_all = len(userid_to_num) + len(businessid_to_num) + len(cityid_to_num) + len(categoryid_to_num)
     for i in range(len(d)):
-        rates = np.zeros([num_all, num_all])
+        # rates = np.zeros([num_all, num_all])
         with open("rates/" + d_names[i], 'wb') as f:
-            for review in d_names[i]:
-                user_id = userid_to_num[review["user_id"]]
-                business_id = businessid_to_num[review["business_id"]]
-                rate = int(review["stars"])
-                rates[user_id, business_id] = rate
-                rates[business_id, user_id] = rate
-            pickle.dump(rates, f, protocol=4)
+            # for review in d_names[i]:
+            #     user_id = userid_to_num[review["user_id"]]
+            #     business_id = businessid_to_num[review["business_id"]]
+            #     rate = int(review["stars"])
+            #     rates[user_id, business_id] = rate
+            #     rates[business_id, user_id] = rate
+            # pickle.dump(rates, f, protocol=4)
+            pickle.dump(d[i], f, protocol=4)
