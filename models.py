@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from layers import GraphAttentionLayer, SparseGraphAttentionLayer
-from utils import Metapath
 
 class GraphAttentionNetwork(nn.Module):
     def __init__(self, input_features, hiddens, outputs, nheads, alpha):
@@ -67,7 +66,8 @@ class MetapathMultitypeGAT(nn.Module):
         self.GAT = multypeGAT(type_size, feature_size, feature_size, feature_size, nheads, alpha)
     def forward(self, node_embedding):
         x = self.GAT(node_embedding, self.metapath_adj)
-        # x = torch.mm(self.metapath_weight, x)
+        n = node_embedding.shape[1]
+        x = torch.matmul(self.metapath_weight.unsqueeze(1).repeat(1, n, 1), x)
         return node_embedding + x
 
 if __name__ == '__main__':
