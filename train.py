@@ -7,7 +7,7 @@ import numpy as np
 from numpy import array
 from scipy import sparse
 import torch
-from torch import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim.lr_scheduler as lr_scheduler
 import torch.nn.functional as F
