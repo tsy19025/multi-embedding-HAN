@@ -133,20 +133,24 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
 #     return adj
 
 def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_ratio, test_ratio):
-    selected_review = []
+    selected_reviews = []
     for review in reviews:
         if (review["user_id"] not in userid_to_num) or (review["business_id"] not in businessid_to_num):
             continue
-        selected_review.append(review)
-    n_reviews = len(selected_review)
-    test_indices = np.random.choice(selected_review, size=int(n_reviews*test_ratio), replace=False)
+        filtered_review = {}
+        filtered_review["user"] = userid_to_num[review["user_id"]]
+        filtered_review["business"] = businessid_to_num[review["business_id"]]
+        filtered_review["rate"] = int(review["stars"])
+        selected_reviews.append(filtered_review)
+    n_reviews = len(selected_reviews)
+    test_indices = np.random.choice(selected_reviews, size=int(n_reviews*test_ratio), replace=False)
     left = set(range(n_reviews))-set(test_indices)
     n_left = len(left)
     valid_indices = np.random.choice(list(left), size=int(n_left*valid_ratio), replace=False)
     train_indices = list(left-set(valid_indices))
-    train_data = [selected_review[index] for index in train_indices]
-    valid_data = [selected_review[index] for index in valid_indices]
-    test_data = [selected_review[index] for index in test_indices]
+    train_data = [selected_reviews[index] for index in train_indices]
+    valid_data = [selected_reviews[index] for index in valid_indices]
+    test_data = [selected_reviews[index] for index in test_indices]
     return train_data, valid_data, test_data
 
 def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_to_num, users, businesses, reviews):
