@@ -44,48 +44,25 @@ class multi_HAN(nn.Module):
 
     def forward(self, users, businesses, user_neigh_list_lists, business_neigh_list_lists):
         if self.dataset == 'yelp':
-            user_user_neigh_list, user_business_neigh_list, user_city_neigh_list, user_category_neigh_list = user_neigh_list_lists
-            business_business_neigh_list, business_user_neigh_list, business_city_neigh_list, business_category_neigh_list = business_neigh_list_lists
             user_embed = self.user_embed_init(users)
             business_embed = self.business_embed_init(businesses)
+            neigh_emb_list = [self.user_embed_init, self.business_embed_init, self.city_embed_init, self.category_embed_init]
             #user embedding propagate
             user_homo_encoder_list = []
-            for user_neigh in user_user_neigh_list:
-                user_neigh_embed = self.user_embed_init(user_neigh)
-                user_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                user_homo_encoder_list.append(user_homo_encoder(user_embed, user_neigh_embed))
-            for business_neigh in user_business_neigh_list:
-                user_neigh_embed = self.business_embed_init(business_neigh)
-                user_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                user_homo_encoder_list.append(user_homo_encoder(user_embed, user_neigh_embed))
-            for city_neigh in user_city_neigh_list:
-                user_neigh_embed = self.city_embed_init(city_neigh)
-                user_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                user_homo_encoder_list.append(user_homo_encoder(user_embed, user_neigh_embed))
-            for category_neigh in user_category_neigh_list:
-                user_neigh_embed = self.category_embed_init(category_neigh)
-                user_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                user_homo_encoder_list.append(user_homo_encoder(user_embed, user_neigh_embed))
+            for list_index in range(len(user_neigh_list_lists)):
+                for neigh in user_neigh_list_lists[list_index]:
+                    user_neigh_embed = neigh_emb_list[list_index](neigh)
+                    user_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                    user_homo_encoder_list.append(user_homo_encoder(user_embed, user_neigh_embed))
             user_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)
             updated_user_embed = user_hete_encoder(user_embed, torch.stack(user_homo_encoder_list, dim=1))
-            #business embedding propagate
+            #business embedding propagete
             business_homo_encoder_list = []
-            for business_neigh in business_business_neigh_list:
-                business_neigh_embed = self.business_embed_init(business_neigh)
-                business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
-            for user_neigh in business_user_neigh_list:
-                business_neigh_embed = self.user_embed_init(user_neigh)
-                business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
-            for city_neigh in business_city_neigh_list:
-                business_neigh_embed = self.city_embed_init(city_neigh)
-                business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
-            for category_neigh in business_category_neigh_list:
-                business_neigh_embed = self.category_embed_init(category_neigh)
-                business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
-                business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
+            for list_index in range(len(business_neigh_list_lists)):
+                for neigh in business_neigh_list_lists[list_index]:
+                    business_neigh_embed = neigh_emb_list[list_index](neigh)
+                    business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                    business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
             business_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)
             updated_business_embed = business_hete_encoder(user_embed, torch.stack(business_homo_encoder_list, dim=1))
         logit = self.autocross(updated_user_embed, updated_business_embed)
