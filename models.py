@@ -64,13 +64,7 @@ class multi_HAN(nn.Module):
                 homo_encoder_list.append(homo_encoder())
             hete_encoder = HeteAttention(features=user_embed, meta_feature_list=homo_encoder_list)
 
-            #business embedding update
-
-
-
-
-
-
+            #business embedding propagate
     def loss(self):
         return loss
 
