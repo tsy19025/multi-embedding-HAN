@@ -31,6 +31,7 @@ class multi_HAN(nn.Module):
         self.dataset = args.dataset
         self.n_facet = args.n_facet
         self.emb_dim = args.emb_dim
+        self.niter = args.iter
         if self.dataset == 'yelp':
             n_users, n_businesses, n_cities, n_categories = n_nodes_list
             cur_dim = self.n_facet * self.emb_dim
@@ -51,21 +52,22 @@ class multi_HAN(nn.Module):
             homo_encoder_list = []
             for user_neigh in user_user_neigh_list:
                 neigh_embed = self.user_embed_init(user_neigh)
-                homo_encoder = HomoAttention(features=user_embed, neigh_features=neigh_embed)
-                homo_encoder_list.append(homo_encoder())
+                homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                homo_encoder_list.append(homo_encoder(user_embed, neigh_embed))
             for business_neigh in user_business_neigh_list:
                 neigh_embed = self.business_embed_init(business_neigh)
-                homo_encoder = HomoAttention(features=user_embed, neigh_features=neigh_embed)
-                homo_encoder_list.append(homo_encoder())
+                homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                homo_encoder_list.append(homo_encoder(user_embed, neigh_embed))
             for city_neigh in user_city_neigh_list:
                 neigh_embed = self.city_embed_init(city_neigh)
-                homo_encoder = HomoAttention(features=user_embed, neigh_features=neigh_embed)
-                homo_encoder_list.append(homo_encoder())
+                homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                homo_encoder_list.append(homo_encoder(user_embed, neigh_embed))
             for category_neigh in user_category_neigh_list:
                 neigh_embed = self.category_embed_init(category_neigh)
-                homo_encoder = HomoAttention(features=user_embed, neigh_features=neigh_embed)
-                homo_encoder_list.append(homo_encoder())
-            hete_encoder = HeteAttention()
+                homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                homo_encoder_list.append(homo_encoder(user_embed, neigh_embed))
+            hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)
+            updated_user_embed = hete_encoder(user_embed, torch.stack(homo_encoder_list, dim=1))
 
             #business embedding propagate
     def loss(self):

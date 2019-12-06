@@ -3,13 +3,22 @@ import torch.nn as nn
 import torch.nn.functional as fn
 
 class HomoAttention(nn.Module):
-    def __init__(self, features, neigh_features):
+    def __init__(self, emb_dim, n_facet):
         super(HomoAttention, self).__init__()
-        self.features = features
-        self.neigh_features = features
+        self.emb_dim = emb_dim
+        self.n_facet = n_facet
 
-    def forward(self):
-
+    def forward(self, features, neigh_features):
+        batch_size = features.shape[0]
+        neighbor_size = neigh_features.shape[1]
+        x = features.view(batch_size, self.n_facet, self.emb_dim)
+        z = neigh_features.view(batch_size, neighbor_size, self.n_facet, self.emb_dim)
+        x = fn.normalize(x, dim=2)
+        z = fn.normalize(z, dim=3)
+        a = torch.sum(z*x.view(batch_size, 1, self.n_facet, self.emb_dim), dim=3)
+        a = fn.softmax(a, dim=1)
+        u = torch.sum(z*a.view(batch_size, neighbor_size, self.n_facet, 1), dim=1)
+        return u.view(batch_size, self.n_facet*self.emb_dim)
 
 class HeteAttention(nn.Module):
     def __init__(self, emb_dim, n_facet, niter):
