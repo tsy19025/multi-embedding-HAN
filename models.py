@@ -88,8 +88,10 @@ class multi_HAN(nn.Module):
                 business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
             business_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)
             updated_business_embed = business_hete_encoder(user_embed, torch.stack(business_homo_encoder_list, dim=1))
-        logit = self.loss(updated_user_embed, updated_business_embed)
-    def loss(self, user_emb, business_emb):
+        logit = self.autocross(updated_user_embed, updated_business_embed)
+    def autocross(self, user_emb, business_emb):
+        return predict
+    def loss(self, ):
         return loss
 
 
