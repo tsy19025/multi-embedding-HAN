@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from h_atten import HomoAttention, HeteAttention
 # from layers import GraphAttentionLayer, SparseGraphAttentionLayer
 # from utils import Metapath
 
@@ -23,14 +24,16 @@ class SparseInputLinear(nn.Module):
         return torch.mm(x, self.weight) + self.bias
 
 class multi_HAN(nn.Module):
-    def __init__(self, n_nodes_list, emb_dim, n_facet, dataset, args):
+    def __init__(self, n_nodes_list, args):
         super(multi_HAN, self).__init__()
         user_cuda = torch.cuda.is_available() and args.cuda
         dev = torch.device('cuda' if user_cuda else 'cpu')
-        self.dataset = dataset
+        self.dataset = args.dataset
+        self.n_facet = args.n_facet
+        self.emb_dim = args.emb_dim
         if self.dataset == 'yelp':
             n_users, n_businesses, n_cities, n_categories = n_nodes_list
-            cur_dim = n_facet * emb_dim
+            cur_dim = self.n_facet * self.emb_dim
             self.user_embed_init = SparseInputLinear(n_users, cur_dim)
             self.business_embed_init = SparseInputLinear(n_businesses, cur_dim)
             self.city_embed_init = SparseInputLinear(n_cities, cur_dim)
@@ -62,7 +65,7 @@ class multi_HAN(nn.Module):
                 neigh_embed = self.category_embed_init(category_neigh)
                 homo_encoder = HomoAttention(features=user_embed, neigh_features=neigh_embed)
                 homo_encoder_list.append(homo_encoder())
-            hete_encoder = HeteAttention(features=user_embed, meta_feature_list=homo_encoder_list)
+            hete_encoder = HeteAttention()
 
             #business embedding propagate
     def loss(self):
