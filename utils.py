@@ -66,9 +66,10 @@ class YelpDataset(Dataset):
         for adj_path in adj_paths:
             with open(adj_path, 'rb') as f:
                 adjs.append(pickle.load(f))
+        print(adjs[0].shape)
         adjs.append(adjs[1].T)
-        self.user_adjs = [torch.LongTensor(adjs[i], requires_grad=False) for i in [0, 1, 4, 5, 6, 7, 8]]
-        self.business_adjs = [torch.LongTensor(adjs[i], requires_grad=False) for i in [1, 2, 3, 9, 10, 11]]
+        self.user_adjs = [torch.LongTensor(adjs[i]) for i in [0, 1, 4, 5, 6, 7, 8]]
+        self.business_adjs = [torch.LongTensor(adjs[i]) for i in [1, 2, 3, 9, 10, 11]]
         # self.x_user = torch.LongTensor([user_num for user_num in range(len(num_to_userid))], requires_grad=False)
         # self.x_business = torch.LongTensor([business_num for business_num in range(len(num_to_businessid))], requires_grad=False)
         # self.x_user = torch.LongTensor([userid_to_num[r['user_id']] for r in xy], requires_grad=False)
