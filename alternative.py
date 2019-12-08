@@ -6,7 +6,7 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         self.n_facet = n_facet
         self.emb_dim = emb_dim
-        self.layer = nn.LSTM(n_facet * emb_dim, n_facet * emb_dim, lstm_layers) 
+        self.layer = nn.LSTM(n_facet * emb_dim, n_facet * emb_dim, lstm_layers)
 
     def forward(self, node_feature, node_neighbor_feature):
         # node_neighbor_feature: [batch_size, neighbor_size, n_facet, emb_dim]
@@ -22,12 +22,24 @@ class LSTM(nn.Module):
         return output[-1]
 
 class mean_pooling(nn.Module):
-    def __init__(self):
+    def __init__(self, batch_size, n_facet, emb_dim, dropout = 0):
         super(mean_pooling, self).__init__()
+        self.n_facet = n_facet
+        self.emb_dim = emb_dim
+        self.dropout = nn.Dropout(1 - dropout)
+
+        self.W1 = nn.Parameter(torch.FloatTensor(n_facet * emb_dim, n_facet * emb_dim))
+        self.W2 = nn.Parameter(torch.FloatTensor(n_facet * emb_dim, n_facet * emb_dim))
+        self.bias = nn.Parameter(torch.FloatTensor(batch_size, n_facet * emb_dim))
+
     def forward(self, node_feature, node_neighbor_feature):
-        n = node_neighbor_feature.shape[1]
-        x = torch.cat((node_feature.unsqueeze(1), node_neighbor_feature), dim = 1)
-        x = torch.sum(x, dim = 1).squeeze() / (n + 1)
+        u = self.dropout(node_feature)
+        v = self.dropout(node_neighbor_feature)
+        # u = node_feature
+        # v = node_neighbor_feature
+
+        v_mean = torch.mean(v, dim = 1)
+        x = torch.matmul(v_mean, self.W1) + torch.matmul(u, self.W2) + self.bias
         return x
 
 if __name__ == "__main__":
@@ -40,5 +52,5 @@ if __name__ == "__main__":
     node_feature = torch.rand(batch_size, n_facet * emb_dim)
     node_neighbor_feature = torch.rand(batch_size, neighbor_size, n_facet * emb_dim)
 
-    model = mean_pooling()
+    model = mean_pooling(batch_size, n_facet, emb_dim)
     print(model(node_feature, node_neighbor_feature))
