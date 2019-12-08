@@ -67,6 +67,8 @@ class multi_HAN(nn.Module):
             updated_business_embed = business_hete_encoder(user_embed, torch.stack(business_homo_encoder_list, dim=1))
         logit = self.autocross(updated_user_embed, updated_business_embed)
     def autocross(self, user_emb, business_emb):
+
+
         return predict
     def loss(self, ):
         return loss

@@ -106,9 +106,7 @@ if __name__ == '__main__':
     n_categories = dataset.adjs[2].shape[1]
     n_node_list = [n_user, n_business, n_cities, n_categories]
     model = multi_HAN(n_node_list, args)
-
     for data in data_loader:
         user, business, label, user_neighbor_list， business_neighbor_list = data
         # ans = model(user, business, user_neighbor_list, business_neighbor_list)
     '''
-
