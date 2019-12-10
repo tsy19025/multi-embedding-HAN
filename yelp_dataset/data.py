@@ -18,11 +18,10 @@ def get_id_to_num(json_datas, filtered_list, filtered_name, id_name, multi_value
         if data[filtered_name] not in filtered_list:
             continue
         if multi_value:
-            data_ids = data[id_name].split(",")
+            data_ids = [data_id.strip() for data_id in data[id_name].split(',')]
         else:
-            data_ids = data[id_name]
+            data_ids = [data[id_name]]
         for data_id in data_ids:
-            data_id = data_id.strip()
             if data_id not in id_to_num:
                 num_to_id[tot] = data_id
                 id_to_num[data_id] = tot
@@ -34,13 +33,31 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
     business_interact_num = {}
     filtered_users = {}
     filtered_businesses = []
-    for review in reviews:
-        user_id = review['user_id']
-        business_id = review['business_id']
-        users_interact_num[user_id] = users_interact_num.get(user_id, 0) + 1
-        business_interact_num[business_id] = business_interact_num.get(business_id, 0) + 1
-    filtered_review_users = [u for u in users_interact_num.keys() if users_interact_num[u]>=user_threshold]
-    filtered_review_businesses = [b for b in business_interact_num.keys() if business_interact_num[b]>=business_threshold]
+    print('filter step 1')
+    continue_filter = True
+    filtered_review_users = set()
+    filtered_review_businesses = set()
+    while(continue_filter):
+        filtered_review = []
+        last_filtered_review_users = deepcopy(filtered_review_users)
+        last_filtered_review_businesses = deepcopy(filtered_review_businesses)
+        for review in reviews:
+            user_id = review['user_id']
+            business_id = review['business_id']
+            users_interact_num[user_id] = users_interact_num.get(user_id, 0) + 1
+            business_interact_num[business_id] = business_interact_num.get(business_id, 0) + 1
+        filtered_review_users = set(u for u in users_interact_num.keys() if users_interact_num[u]>=user_threshold)
+        filtered_review_businesses = set(b for b in business_interact_num.keys() if business_interact_num[b]>=business_threshold)
+        for review in reviews:
+            if (review['user_id'] in filtered_review_users) and (review['business_id'] in filtered_review_businesses):
+                filtered_review.append(review)
+        reviews = deepcopy(filtered_review)
+        if (last_filtered_review_users == filtered_review_users) and (last_filtered_review_businesses == filtered_review_businesses):
+            continue_filter = False
+    print(len(list(filtered_review_users)))
+    print(len(list(filtered_review_businesses)))
+    print('filter step 2')
+    #filter user and business
     for user in users:
         user_id = user['user_id']
         if user_id not in filtered_review_users:
@@ -51,7 +68,7 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
         if len(filtered_friends) >= friend_threshold:
             filtered_users[user_id] = filtered_friends
     continue_filter = True
-    while(continue_filter):
+    while (continue_filter):
         friends = {}
         continue_filter = False
         for user, user_friends in filtered_users.items():
@@ -70,7 +87,10 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
         if not business['city']:
             continue
         filtered_businesses.append(business_id)
-    return filtered_users.keys(), filtered_businesses
+    print(len(filtered_users))
+    print(len(filtered_businesses))
+    print('filter complete')
+    return set(filtered_users.keys()), set(filtered_businesses)
 
 def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_ratio, test_ratio):
     selected_reviews = []
@@ -78,12 +98,12 @@ def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_
         if (review['user_id'] not in userid_to_num) or (review['business_id'] not in businessid_to_num):
             continue
         filtered_review = {}
-        filtered_review['user'] = userid_to_num[review['user_id']]
-        filtered_review['business'] = businessid_to_num[review['business_id']]
+        filtered_review['user_id'] = userid_to_num[review['user_id']]
+        filtered_review['business_id'] = businessid_to_num[review['business_id']]
         filtered_review['rate'] = int(review['stars'])
         selected_reviews.append(filtered_review)
     n_reviews = len(selected_reviews)
-    test_indices = np.random.choice(selected_reviews, size=int(n_reviews*test_ratio), replace=False)
+    test_indices = np.random.choice(range(n_reviews), size=int(n_reviews*test_ratio), replace=False)
     left = set(range(n_reviews))-set(test_indices)
     n_left = len(left)
     valid_indices = np.random.choice(list(left), size=int(n_left*valid_ratio), replace=False)
@@ -120,7 +140,6 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
         user_id = userid_to_num[review['user_id']]
         business_id = businessid_to_num[review['business_id']]
         adj_UB[user_id][business_id] = 1
-        adj_UB[business_id][user_id] = 1
     #relation B_Ca B_Ci
     for business in businesses:
         if business['business_id'] not in businessid_to_num:
@@ -128,12 +147,10 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
         business_id = businessid_to_num[business['business_id']]
         city_id = cityid_to_num[business['city']]
         adj_BCi[business_id][city_id] = 1
-        adj_BCi[city_id][business_id] = 1
         for category in business['categories'].split(','):
             category = category.strip()
             category_id = categoryid_to_num[category]
             adj_BCa[business_id][category_id] = 1
-            adj_BCa[category_id][business_id] = 1
     #metapath
     adj_UUB = adj_UU.dot(adj_UB)
     adj_UBU = adj_UB.dot(adj_UB.T)
