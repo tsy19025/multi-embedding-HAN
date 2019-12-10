@@ -62,12 +62,12 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
                 continue_filter = True
         filtered_users = deepcopy(friends)
     for business in businesses:
-        business_id = business["business_id"]
+        business_id = business['business_id']
         if business_id not in filtered_review_businesses:
             continue
-        if not business["categories"]:
+        if not business['categories']:
             continue
-        if not business["city"]:
+        if not business['city']:
             continue
         filtered_businesses.append(business_id)
     return filtered_users.keys(), filtered_businesses
@@ -75,12 +75,12 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
 def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_ratio, test_ratio):
     selected_reviews = []
     for review in reviews:
-        if (review["user_id"] not in userid_to_num) or (review["business_id"] not in businessid_to_num):
+        if (review['user_id'] not in userid_to_num) or (review['business_id'] not in businessid_to_num):
             continue
         filtered_review = {}
-        filtered_review["user"] = userid_to_num[review["user_id"]]
-        filtered_review["business"] = businessid_to_num[review["business_id"]]
-        filtered_review["rate"] = int(review["stars"])
+        filtered_review['user'] = userid_to_num[review['user_id']]
+        filtered_review['business'] = businessid_to_num[review['business_id']]
+        filtered_review['rate'] = int(review['stars'])
         selected_reviews.append(filtered_review)
     n_reviews = len(selected_reviews)
     test_indices = np.random.choice(selected_reviews, size=int(n_reviews*test_ratio), replace=False)
@@ -104,10 +104,10 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
     adj_BCa = np.zeros([tot_business, tot_category])
     adj_BCi = np.zeros([tot_business, tot_city])
     for user in users:
-        if user["user_id"] not in userid_to_num:
+        if user['user_id'] not in userid_to_num:
             continue
-        user_id = userid_to_num[user["user_id"]]
-        for friend in user["friends"].split(","):
+        user_id = userid_to_num[user['user_id']]
+        for friend in user['friends'].split(','):
             friend = friend.strip()
             if friend in userid_to_num:
                 friend_id = userid_to_num[friend]
@@ -115,21 +115,21 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
                 adj_UU[friend_id][user_id] = 1
     #relation U-B
     for review in reviews:
-        if (review["user_id"] not in userid_to_num) or (review["business_id"] not in businessid_to_num):
+        if (review['user_id'] not in userid_to_num) or (review['business_id'] not in businessid_to_num):
             continue
-        user_id = userid_to_num[review["user_id"]]
-        business_id = businessid_to_num[review["business_id"]]
+        user_id = userid_to_num[review['user_id']]
+        business_id = businessid_to_num[review['business_id']]
         adj_UB[user_id][business_id] = 1
         adj_UB[business_id][user_id] = 1
     #relation B_Ca B_Ci
     for business in businesses:
-        if business["business_id"] not in businessid_to_num:
+        if business['business_id'] not in businessid_to_num:
             continue
-        business_id = businessid_to_num[business["business_id"]]
-        city_id = cityid_to_num[business["city"]]
+        business_id = businessid_to_num[business['business_id']]
+        city_id = cityid_to_num[business['city']]
         adj_BCi[business_id][city_id] = 1
         adj_BCi[city_id][business_id] = 1
-        for category in business["categories"].split(","):
+        for category in business['categories'].split(','):
             category = category.strip()
             category_id = categoryid_to_num[category]
             adj_BCa[business_id][category_id] = 1
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     r = (num_to_userid, num_to_businessid, num_to_cityid, num_to_categoryid)
     r_names = ('num_to_userid', 'num_to_businessid', 'num_to_cityid', 'num_to_categoryid')
     for i in range(len(r)):
-        with open("adjs/" + r_names[i], 'wb') as f:
+        with open('adjs/' + r_names[i], 'wb') as f:
             pickle.dump(r[i], f, protocol=4)
     review_train, review_valid, review_test = dataset_split(review_json, userid_to_num, businessid_to_num, 0.8, 0.1, 0.2)
     adj_UU, adj_UB, adj_BCa, adj_BCi, adj_UUB, adj_UBU, adj_UBUB, adj_UBCa, adj_UBCi, adj_BCaB, adj_BCiB = \
@@ -169,11 +169,11 @@ if __name__ == '__main__':
     t = (adj_UU, adj_UB, adj_BCa, adj_BCi, adj_UUB, adj_UBU, adj_UBUB, adj_UBCa, adj_UBCi, adj_BCaB, adj_BCiB)
     t_names = ('adj_UU', 'adj_UB', 'adj_BCa', 'adj_BCi', 'adj_UUB', 'adj_UBU', 'adj_UBUB', 'adj_UBCa', 'adj_UBCi', 'adj_BCaB', 'adj_BCiB')
     for i in range(len(t)):
-        with open("adjs/" + t_names[i], 'wb') as f:
+        with open('adjs/' + t_names[i], 'wb') as f:
             pickle.dump(t[i], f, protocol=4)
     # train valid test data save
     d = (review_train, review_valid, review_test)
     d_names = ('rate_train', 'rate_valid', 'rate_test')
     for i in range(len(d)):
-        with open("rates/" + d_names[i], 'wb') as f:
+        with open('rates/' + d_names[i], 'wb') as f:
             pickle.dump(d[i], f, protocol=4)

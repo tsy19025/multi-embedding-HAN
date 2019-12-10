@@ -18,7 +18,6 @@ from functools import reduce
 import cProfile
 import time
 from utils import YelpDataset
-# from yelp_dataset.yelp500_gen import load_jsondata_from_file, get_id_to_num
 
 loss_fn = nn.MSELoss(reduction = 'none')
 
@@ -66,8 +65,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.dataset == 'yelp':
-        # data_path = 'yelp_dataset/rates/rate_train'
-        #adj_UU, adj_UB, adj_BCa, adj_BCi, adj_UUB, adj_UBU, adj_UBUB, adj_UBCa, adj_UBCi, adj_BCaB, adj_BCiB
         adj_paths = []
         adj_names = ['adj_UU', 'adj_UB', 'adj_BCa', 'adj_BCi', 'adj_UUB', 'adj_UBU', 'adj_UBUB', 'adj_UBCa', 'adj_UBCi', 'adj_BCaB', 'adj_BCiB']
         for name in adj_names:
