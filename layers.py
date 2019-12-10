@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from scipy import sparse
 import torch.nn.functional as F
 
 class GraphAttentionLayer(nn.Module):
