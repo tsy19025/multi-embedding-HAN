@@ -89,8 +89,9 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
         print(len(list(filtered_users)))
         print(len(list(filtered_businesses)))
         print(len(reviews))
+        print('filter loop')
     print('filter complete')
-    return filtered_users, filtered_businesses
+    return filtered_users, filtered_businesses, filtered_review
 
 def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_ratio, test_ratio):
     selected_reviews = []
@@ -135,10 +136,12 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
                 adj_UU[friend_id][user_id] = 1
     #relation U-B
     for review in reviews:
-        if (review['user_id'] not in userid_to_num) or (review['business_id'] not in businessid_to_num):
-            continue
-        user_id = userid_to_num[review['user_id']]
-        business_id = businessid_to_num[review['business_id']]
+        # if (review['user_id'] not in userid_to_num) or (review['business_id'] not in businessid_to_num):
+        #     continue
+        # user_id = userid_to_num[review['user_id']]
+        # business_id = businessid_to_num[review['business_id']]
+        user_id = review['user_id']
+        business_id = review['business_id']
         adj_UB[user_id][business_id] = 1
     #relation B_Ca B_Ci
     for business in businesses:
@@ -165,7 +168,7 @@ if __name__ == '__main__':
     user_json = load_jsondata_from_file('json/yelp_academic_dataset_user.json')
     business_json = load_jsondata_from_file('json/yelp_academic_dataset_business.json')
     review_json = load_jsondata_from_file('json/yelp_academic_dataset_review.json')
-    filtered_user, filtered_business = filter_rare_node(user_json, business_json, review_json, 20, 20, 5)
+    filtered_user, filtered_business, filtered_reviews = filter_rare_node(user_json, business_json, review_json, 20, 20, 5)
     num_to_userid, userid_to_num = get_id_to_num(user_json, filtered_user, 'user_id', 'user_id', False)
     num_to_businessid, businessid_to_num = get_id_to_num(business_json, filtered_business, 'business_id', 'business_id', False)
     num_to_cityid, cityid_to_num = get_id_to_num(business_json, filtered_business, 'business_id', 'city', False)
@@ -179,7 +182,7 @@ if __name__ == '__main__':
     for i in range(len(r)):
         with open('adjs/' + r_names[i], 'wb') as f:
             pickle.dump(r[i], f, protocol=4)
-    review_train, review_valid, review_test = dataset_split(review_json, userid_to_num, businessid_to_num, 0.8, 0.1, 0.2)
+    review_train, review_valid, review_test = dataset_split(filtered_reviews, userid_to_num, businessid_to_num, 0.8, 0.1, 0.2)
     adj_UU, adj_UB, adj_BCa, adj_BCi, adj_UUB, adj_UBU, adj_UBUB, adj_UBCa, adj_UBCi, adj_BCaB, adj_BCiB = \
         get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_to_num, user_json, business_json, review_train)
     # relation save
