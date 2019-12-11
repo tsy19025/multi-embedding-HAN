@@ -19,15 +19,18 @@ class YelpDataset(Dataset):
         user_neigh_list_lists = []
         business_neigh_list_lists = []
         user_user_adjs = [self.adjs[0], self.adjs[5]]
-        user_business_adjs = [self.ajds[1], self.adjs[4], self.ajds[6]]
+        user_business_adjs = [self.adjs[1], self.adjs[4], self.adjs[6]]
         user_city_adjs = [self.adjs[8]]
         user_category_adjs = [self.adjs[7]]
         user_neigh_adjs = [user_user_adjs, user_business_adjs, user_city_adjs, user_category_adjs]
+        print(user, business)
         for adjs in user_neigh_adjs:
             user_neigh_list = []
             for adj in adjs:
+                print(adj[user])
                 neighbors_index = np.nonzero(adj[user])[0]
                 if len(neighbors_index) < self.neighbor_size:
+                    # print("not enough ", neighbors_index)
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=True)
                 else:
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=False)
@@ -41,7 +44,7 @@ class YelpDataset(Dataset):
         for adjs in business_neigh_adjs:
             business_neigh_list = []
             for adj in adjs:
-                neighbors_index = np.nonzero(adj[user])[0]
+                neighbors_index = np.nonzero(adj[business])[0]
                 if len(neighbors_index) < self.neighbor_size:
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=True)
                 else:
