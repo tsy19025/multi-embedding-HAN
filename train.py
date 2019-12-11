@@ -7,8 +7,10 @@ import numpy as np
 from numpy import array
 # from scipy import sparse
 import torch
-from torch.utils.data import Dataset, DataLoader
+import pickle
+from torch.utils.data import DataLoader
 import torch.nn as nn
+from models import multi_HAN
 import torch.optim.lr_scheduler as lr_scheduler
 import torch.nn.functional as F
 import os
@@ -16,54 +18,57 @@ import operator
 from random import sample, random, randint
 from functools import reduce
 import cProfile
-import time
+# import time
 from utils import YelpDataset
 
 loss_fn = nn.MSELoss(reduction = 'none')
 
-def train_one_epoch(epoch, data_loader):
-    total_loss = 0
-    start_time = time.time()
+def parse_args():
+    parser = argparse.ArgumentParser(description='multi-embedding-HAN')
+    parser.add_argument('--embed_dim', type=int, default=64,
+                        help='dimension of embeddings')
+    parser.add_argument('--facet_num', type=int, default=10,
+                        help='number of facet for each embedding')
+    parser.add_argument('--lr', type=float, default=1e-3,
+                        help='initial learning rate')
+    parser.add_argument('--decay', type=float, default=0.8,
+                        help='learning rate decay rate')
+    parser.add_argument('--decay_step', type=int, default=1e2,
+                        help='learning rate decay step')
+    parser.add_argument('--epochs', type=int, default=30,
+                        help='upper epoch limit')
+    parser.add_argument('--batch_size', type=int, default=64, metavar='N',
+                        help='batch size')
+    parser.add_argument('--cuda', action='store_true', default=True,
+                        help='use GPU for training')
+    parser.add_argument('--save', type=str, default='model' + str(time.time()) + '.pt',
+                        help='path to save the final model')
+    parser.add_argument('--resume', type=str, default='',
+                        help='path of model to resume')
+    parser.add_argument('--optimizer', type=str, default='adam',
+                        help='optimizer to use (sgd, adam)')
+    parser.add_argument('--dataset', default='yelp',
+                        help='dataset name')
+    args = parser.parse_args()
+    return args
 
-    for data in data_loader:
-        user, business, label, user_neighbor_list, business_neighbor = data
-        output = model(user, business, user_neighbor_list, business_neighbor_list)
-        loss = loss_fn(output, label)
-        total_loss += loss.data[0]
-        loss.backward()
+# def train_one_epoch(epoch, data_loader):
+#     total_loss = 0
+#     start_time = time.time()
+#
+#     for data in data_loader:
+#         user, business, label, user_neighbor_list, business_neighbor = data
+#         output = model(user, business, user_neighbor_list, business_neighbor_list)
+#         loss = loss_fn(output, label)
+#         total_loss += loss.data[0]
+#         loss.backward()
 
     #    op
     # print("epoch: {0}, loss: {1}, time:{3}".format{epoch, total_loss, time.time() - start_time})
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='multi-embedding-HAN')
-    parser.add_argument('--embed_dim', type=int, default=64,
-                    help='dimension of embeddings')
-    parser.add_argument('--facet_num', type=int, default=10,
-                    help='number of facet for each embedding')
-    parser.add_argument('--lr', type=float, default=1e-3,
-                    help='initial learning rate')
-    parser.add_argument('--decay', type=float, default=0.8,
-                    help='learning rate decay rate')
-    parser.add_argument('--decay_step', type=int, default=1e2,
-                    help='learning rate decay step')
-    parser.add_argument('--epochs', type=int, default=30,
-                    help='upper epoch limit')
-    parser.add_argument('--batch_size', type=int, default=64, metavar='N',
-                    help='batch size')
-    parser.add_argument('--cuda', action='store_true', default=True,
-                    help='use GPU for training')
-    parser.add_argument('--save', type=str, default='model'+ str(time.time()) + '.pt',
-                    help='path to save the final model')
-    parser.add_argument('--resume', type=str, default='',
-                    help='path of model to resume')
-    parser.add_argument('--optimizer', type=str, default='adam',
-                    help='optimizer to use (sgd, adam)')
-    parser.add_argument('--dataset', default='yelp',
-                    help='dataset name')
-    args = parser.parse_args()
-
+    args = parse_args()
     if args.dataset == 'yelp':
         adj_paths = []
         adj_names = ['adj_UU', 'adj_UB', 'adj_BCa', 'adj_BCi', 'adj_UUB', 'adj_UBU', 'adj_UBUB', 'adj_UBCa', 'adj_UBCi', 'adj_BCaB', 'adj_BCiB']
@@ -75,13 +80,21 @@ if __name__ == '__main__':
                                 shuffle = True,
                                 num_workers = 4,
                                 pin_memory = True)
-    # user_json = load_jsondata_from_file("../yelp/user-500k.json")
-    # business_json = load_jsondata_from_file("../yelp/business-500k.json")
-    # review_json = load_jsondata_from_file("../yelp/review-500k.json")
-    # reviewnum_to_id, reviewid_to_num = get_id_to_num(review_json, "review_id")
-    # businessnum_to_id, businessid_to_num = get_id_to_num(business_json, "business_id")
-    # usernum_to_id, userid_to_num = get_id_to_num(user_json, "user_id")
-    #
+        num_to_id_paths = []
+        num_to_ids = []
+        num_to_id_names = ['num_to_userid', 'num_to_businessid', 'num_to_cityid', 'num_to_categoryid']
+        for name in num_to_id_names:
+            num_to_id_paths.append('yelp_dataset/adjs/' + name)
+        for path in num_to_id_paths:
+            with open(path, 'rb') as f:
+                num_to_ids.append(pickle.load(f))
+        n_users, n_businesses, n_cities, n_categories = [len(num_to_id) for num_to_id in num_to_ids]
+        n_nodes_list = [n_users, n_businesses, n_cities, n_categories]
+        model = multi_HAN(n_nodes_list, args)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.decay)
+        for epoch in range(args.epochs):
+
+
     # Yelp500Dataset = YelpDataset("../yelp/review-500k.json", reviewid_to_num, userid_to_num, businessid_to_num)
     # Yelp500DataLoader = DataLoader(dataset = Yelp500Dataset,
     #                           batch_size = args.batch_size,

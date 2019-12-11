@@ -13,9 +13,9 @@ class YelpDataset(Dataset):
                 self.adjs.append(pickle.load(f))
 
     def __getitem__(self, index):
-        user = self.data[index]["user"]
-        business = self.data[index]["business"]
-        label = self.data[index]["rate"]
+        user = self.data[index]['user_id']
+        business = self.data[index]['business_id']
+        label = self.data[index]['rate']
         user_neigh_list_lists = []
         business_neigh_list_lists = []
         user_user_adjs = [self.adjs[0], self.adjs[5]]

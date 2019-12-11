@@ -29,18 +29,14 @@ def get_id_to_num(json_datas, filtered_list, filtered_name, id_name, multi_value
     return num_to_id, id_to_num
 
 def filter_rare_node(users, businesses, reviews, user_threshold, business_threshold, friend_threshold):
-    users_interact_num = {}
-    business_interact_num = {}
-    filtered_users = {}
-    filtered_businesses = []
-    print('filter step 1')
     continue_filter = True
-    filtered_review_users = set()
-    filtered_review_businesses = set()
+    filtered_users = set()
+    filtered_businesses = set()
     while(continue_filter):
-        filtered_review = []
-        last_filtered_review_users = deepcopy(filtered_review_users)
-        last_filtered_review_businesses = deepcopy(filtered_review_businesses)
+        continue_filter = False
+        # filter step 1
+        users_interact_num = {}
+        business_interact_num = {}
         for review in reviews:
             user_id = review['user_id']
             business_id = review['business_id']
@@ -48,49 +44,53 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
             business_interact_num[business_id] = business_interact_num.get(business_id, 0) + 1
         filtered_review_users = set(u for u in users_interact_num.keys() if users_interact_num[u]>=user_threshold)
         filtered_review_businesses = set(b for b in business_interact_num.keys() if business_interact_num[b]>=business_threshold)
+        if (filtered_users != filtered_review_users) or (filtered_businesses != filtered_review_businesses):
+            continue_filter = True
+        # filter step 2
+        #filter user and business
+        user_friends_dict = {}
+        for user in users:
+            user_id = user['user_id']
+            if user_id not in filtered_review_users:
+                continue
+            if not user['friends']:
+                continue
+            filtered_friends = [friend.strip() for friend in user['friends'].split(',') if friend.strip() in filtered_review_users]
+            if len(filtered_friends) >= friend_threshold:
+                user_friends_dict[user_id] = filtered_friends
+        continue_inside = True
+        while (continue_inside):
+            friends = {}
+            continue_inside = False
+            for user, user_friends in user_friends_dict.items():
+                filtered_friends = [friend for friend in user_friends if friend in user_friends_dict]
+                if len(filtered_friends) >= friend_threshold:
+                    friends[user] = filtered_friends
+                else:
+                    continue_inside = True
+            user_friends_dict = deepcopy(friends)
+        filtered_users = set(user_friends_dict.keys())
+        filtered_businesses_list = []
+        for business in businesses:
+            business_id = business['business_id']
+            if business_id not in filtered_review_businesses:
+                continue
+            if not business['categories']:
+                continue
+            if not business['city']:
+                continue
+            filtered_businesses_list.append(business_id)
+        filtered_businesses = set(filtered_businesses_list)
+        filtered_review = []
         for review in reviews:
-            if (review['user_id'] in filtered_review_users) and (review['business_id'] in filtered_review_businesses):
+            if (review['user_id'] in filtered_users) and (review['business_id'] in filtered_businesses):
                 filtered_review.append(review)
         reviews = deepcopy(filtered_review)
-        if (last_filtered_review_users == filtered_review_users) and (last_filtered_review_businesses == filtered_review_businesses):
-            continue_filter = False
-    print(len(list(filtered_review_users)))
-    print(len(list(filtered_review_businesses)))
-    print('filter step 2')
-    #filter user and business
-    for user in users:
-        user_id = user['user_id']
-        if user_id not in filtered_review_users:
-            continue
-        if not user['friends']:
-            continue
-        filtered_friends = [friend.strip() for friend in user['friends'].split(',') if friend.strip() in filtered_review_users]
-        if len(filtered_friends) >= friend_threshold:
-            filtered_users[user_id] = filtered_friends
-    continue_filter = True
-    while (continue_filter):
-        friends = {}
-        continue_filter = False
-        for user, user_friends in filtered_users.items():
-            filtered_friends = [friend for friend in user_friends if friend in filtered_users]
-            if len(filtered_friends) >= friend_threshold:
-                friends[user] = filtered_friends
-            else:
-                continue_filter = True
-        filtered_users = deepcopy(friends)
-    for business in businesses:
-        business_id = business['business_id']
-        if business_id not in filtered_review_businesses:
-            continue
-        if not business['categories']:
-            continue
-        if not business['city']:
-            continue
-        filtered_businesses.append(business_id)
-    print(len(filtered_users))
-    print(len(filtered_businesses))
+        print(len(list(filtered_users)))
+        print(len(list(filtered_businesses)))
+        print(len(reviews))
     print('filter complete')
-    return set(filtered_users.keys()), set(filtered_businesses)
+    return filtered_users, filtered_businesses
 
 def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_ratio, test_ratio):
     selected_reviews = []
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     user_json = load_jsondata_from_file('json/yelp_academic_dataset_user.json')
     business_json = load_jsondata_from_file('json/yelp_academic_dataset_business.json')
     review_json = load_jsondata_from_file('json/yelp_academic_dataset_review.json')
-    filtered_user, filtered_business = filter_rare_node(user_json, business_json, review_json, 30, 100, 5)
+    filtered_user, filtered_business = filter_rare_node(user_json, business_json, review_json, 20, 20, 5)
     num_to_userid, userid_to_num = get_id_to_num(user_json, filtered_user, 'user_id', 'user_id', False)
     num_to_businessid, businessid_to_num = get_id_to_num(business_json, filtered_business, 'business_id', 'business_id', False)
     num_to_cityid, cityid_to_num = get_id_to_num(business_json, filtered_business, 'business_id', 'city', False)
