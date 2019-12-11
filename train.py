@@ -23,9 +23,9 @@ from utils import YelpDataset
 
 def parse_args():
     parser = argparse.ArgumentParser(description='multi-embedding-HAN')
-    parser.add_argument('--embed_dim', type=int, default=64,
+    parser.add_argument('--emb_dim', type=int, default=64,
                         help='dimension of embeddings')
-    parser.add_argument('--facet_num', type=int, default=10,
+    parser.add_argument('--n_facet', type=int, default=10,
                         help='number of facet for each embedding')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='initial learning rate')
@@ -33,6 +33,8 @@ def parse_args():
                         help='learning rate decay rate')
     parser.add_argument('--decay_step', type=int, default=1e2,
                         help='learning rate decay step')
+    parser.add_argument('--log_step', type=int, default=1e2,
+                        help='log print step')
     parser.add_argument('--clip', type=float, default=0.25,
                         help='gradient clipping')
     parser.add_argument('--epochs', type=int, default=30,
@@ -41,7 +43,7 @@ def parse_args():
                         help='batch size')
     parser.add_argument('--cuda', action='store_true', default=True,
                         help='use GPU for training')
-    parser.add_argument('--save', type=str, default='model' + str(time.time()) + '.pt',
+    parser.add_argument('--save', type=str, default='model/',
                         help='path to save the final model')
     parser.add_argument('--resume', type=str, default='',
                         help='path of model to resume')
@@ -50,10 +52,17 @@ def parse_args():
     parser.add_argument('--dataset', default='yelp',
                         help='dataset name')
     args = parser.parse_args()
+    args.save = args.save + args.dataset
+    args.save = args.save + '_batch{}'.format(args.batch_size)
+    args.save = args.save + '_lr{}'.format(args.lr)
+    args.save = args.save + '_emb{}'.format(args.embed_dim)
+    args.save = args.save + '_facet{}'.format(args.n_facet)
+    args.save = args.save + '_decay{}'.format(args.decay)
+    args.save = args.save + '_decaystep{}.pt'.format(args.decay_step)
     return args
 
     # print("epoch: {0}, loss: {1}, time:{3}".format{epoch, total_loss, time.time() - start_time})
-def train_one_epoch(model, train_data_loader, optimizer, loss_fn):
+def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
     epoch_loss = []
     for step, batch_data in enumerate(train_data_loader):
         user, business, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
@@ -63,6 +72,9 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn):
         loss.backward()
         optimizer.step()
         epoch_loss.append(loss)
+        if step % args.log_step == 0:
+            print('Train epoch: {}[{}/{} ({:.0f}%)]\tLoss: {:.6f}, AvgL: {:.6f}'.format(epoch, step, len(train_data_loader),
+                                            100.*step/len(train_data_loader), loss.item(), np.mean(epoch_loss)))
     mean_epoch_loss = np.mean(epoch_loss)
     return mean_epoch_loss
 
@@ -76,8 +88,6 @@ def valid(model, valid_data_loader, loss_fn):
     mean_valid_loss = np.mean(valid_loss)
     print('valid\tloss:%f' % (mean_valid_loss))
     return mean_valid_loss
-
-
 
 if __name__ == '__main__':
     args = parse_args()

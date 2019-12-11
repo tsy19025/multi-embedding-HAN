@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from h_atten import HomoAttention, HeteAttention
+import torch.nn.functional as fn
+from h_atten import HomoAttention, HeteAttention, UserItemAttention
 
 class SparseInputLinear(nn.Module):
     def __init__(self, inp_dim, out_dim):
@@ -64,9 +65,7 @@ class multi_HAN(nn.Module):
             business_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)
             updated_business_embed = business_hete_encoder(user_embed, torch.stack(business_homo_encoder_list, dim=1))
         logit = self.autocross(updated_user_embed, updated_business_embed)
+        return fn.softmax(logit, dim=1)
     def autocross(self, user_emb, business_emb):
-
-
-        return predict
-    def loss(self, ):
-        return loss
+        user_item_fusion_layer = UserItemAttention(self.emb_dim, self.n_facet)
+        return user_item_fusion_layer(user_emb, business_emb)

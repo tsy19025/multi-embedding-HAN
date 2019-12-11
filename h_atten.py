@@ -46,10 +46,10 @@ class HeteAttention(nn.Module):
         return u.view(batch_size, self.n_facet*self.emb_dim)
 
 class UserItemAttention():
-    def __init__(self, emb_dim, n_facet, num_values, has_residual):
+    def __init__(self, emb_dim, n_facet):
         super(UserItemAttention, self).__init__()
-        self.has_residual = has_residual
-        self.num_values = num_values
+        # self.has_residual = has_residual
+        # self.num_values = num_values
         self.emb_dim = emb_dim
         self.n_facet = n_facet
         self.combined_layer = torch.nn.Linear(2 * emb_dim, emb_dim)
