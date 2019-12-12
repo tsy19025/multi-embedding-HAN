@@ -74,7 +74,7 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         loss.backward()
         optimizer.step()
         epoch_loss.append(loss.item())
-        if step % args.log_step == 0:
+        if (step % args.log_step == 0) and step > 0:
             print('Train epoch: {}[{}/{} ({:.0f}%)]\tLoss: {:.6f}, AvgL: {:.6f}'.format(epoch, step, len(train_data_loader),
                                             100.*step/len(train_data_loader), loss.item(), np.mean(epoch_loss)))
     mean_epoch_loss = np.mean(epoch_loss)
