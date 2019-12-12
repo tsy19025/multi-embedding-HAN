@@ -23,11 +23,9 @@ class YelpDataset(Dataset):
         user_city_adjs = [self.adjs[8]]
         user_category_adjs = [self.adjs[7]]
         user_neigh_adjs = [user_user_adjs, user_business_adjs, user_city_adjs, user_category_adjs]
-        print(user, business)
         for adjs in user_neigh_adjs:
             user_neigh_list = []
             for adj in adjs:
-                print(adj[user])
                 neighbors_index = np.nonzero(adj[user])[0]
                 if len(neighbors_index) < self.neighbor_size:
                     # print("not enough ", neighbors_index)
