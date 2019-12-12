@@ -39,6 +39,8 @@ def parse_args():
                         help='gradient clipping')
     parser.add_argument('--epochs', type=int, default=30,
                         help='upper epoch limit')
+    parser.add_argument('--patience', type=int, default=5,
+                        help='Extra iterations before early-stopping')
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='batch size')
     parser.add_argument('--cuda', action='store_true', default=True,
@@ -58,7 +60,8 @@ def parse_args():
     args.save = args.save + '_emb{}'.format(args.embed_dim)
     args.save = args.save + '_facet{}'.format(args.n_facet)
     args.save = args.save + '_decay{}'.format(args.decay)
-    args.save = args.save + '_decaystep{}.pt'.format(args.decay_step)
+    args.save = args.save + '_decaystep{}'.format(args.decay_step)
+    args.save = args.save + '_patience{}.pt'.format(args.patience)
     return args
 
 def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
@@ -136,6 +139,9 @@ if __name__ == '__main__':
             best_loss = valid_loss
             with open(args.save, 'wb') as f:
                 torch.save(model, f)
+        if epoch-best_epoch >= args.patience:
+            print('Stop training after %i epochs without improvement on validation.' % args.patience)
+            break
 
 
 
