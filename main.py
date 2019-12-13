@@ -18,7 +18,7 @@ import operator
 from random import sample, random, randint
 from functools import reduce
 import cProfile
-# import time
+import sys
 from utils import YelpDataset
 
 def parse_args():
@@ -65,14 +65,22 @@ def parse_args():
     args.save = args.save + '_patience{}.pt'.format(args.patience)
     return args
 
-def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, use_cuda):
+def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, device):
     epoch_loss = []
     for step, batch_data in enumerate(train_data_loader):
         user, business, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
-        if use_cuda:
-            user = user.cuda()
-            business = business.cuda()
-            # user_neigh_list_lists = 
+        user = user.to(device)
+        business = business.to(device)
+        user_neigh_list_lists = [[neigh.to(device) for neigh in user_neigh_list] for user_neigh_list in user_neigh_list_lists]
+        business_neigh_list_lists = [[neigh.to(device) for neigh in business_neigh_list] for business_neigh_list in business_neigh_list_lists]
+        label = label.to(device)
+
+        # for user_neigh_list in user_neigh_list_lists:
+        #     print(type(user_neigh_list), len(user_neigh_list))
+        #     print(user_neigh_list)
+        # sys.exit(0)
+        # user_neigh_list_lists = torch.tensor(user_neigh_list_lists).to(device)
+        # business_neigh_list_lists = torch.tensor(business_neigh_list_lists).to(device)
         output = model(user, business, user_neigh_list_lists, business_neigh_list_lists)
         loss = loss_fn(output, label)
         optimizer.zero_grad()
@@ -136,7 +144,7 @@ if __name__ == '__main__':
     for epoch in range(args.epochs):
         scheduler.step()
         print('Start epoch: ', epoch)
-        mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, use_cuda)
+        mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, device)
             # total_loss += loss.data[0]
         valid_loss = valid(model, train_data_loader, optimizer, loss_fn)
         if valid_loss < best_loss:

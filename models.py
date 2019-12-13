@@ -23,7 +23,8 @@ class SparseInputLinear(nn.Module):
         self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
-        x = torch.tensor(x, dtype = torch.float32).cuda()
+        x = x.float()
+        # x = torch.tensor(x, dtype = torch.float32).cuda()
         return torch.mm(x.unsqueeze(0), self.weight).squeeze(0) + self.bias
 
 class multi_HAN(nn.Module):
@@ -35,13 +36,14 @@ class multi_HAN(nn.Module):
         self.n_facet = args.n_facet
         self.emb_dim = args.emb_dim
         self.niter = args.iter
+        self.dev = dev
         if self.dataset == 'yelp':
             n_users, n_businesses, n_cities, n_categories = n_nodes_list
             cur_dim = self.n_facet * self.emb_dim
-            self.user_embed_init = SparseInputLinear(n_users, cur_dim)
-            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim)
-            self.city_embed_init = SparseInputLinear(n_cities, cur_dim)
-            self.category_embed_init = SparseInputLinear(n_categories, cur_dim)
+            self.user_embed_init = SparseInputLinear(n_users, cur_dim).to(dev)
+            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim).to(dev)
+            self.city_embed_init = SparseInputLinear(n_cities, cur_dim).to(dev)
+            self.category_embed_init = SparseInputLinear(n_categories, cur_dim).to(dev)
         else:
             print('dataset wrong!')
 
