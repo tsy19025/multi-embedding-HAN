@@ -10,6 +10,7 @@ class SparseInputLinear(nn.Module):
         weight = np.zeros((inp_dim, out_dim), dtype=np.float32)
         weight = nn.Parameter(torch.from_numpy(weight))
         bias = np.zeros(out_dim, dtype=np.float32)
+        bias = nn.Parameter(torch.from_numpy(bias))
         self.inp_dim, self.out_dim = inp_dim, out_dim
         self.weight, self.bias = weight, bias
         self.reset_parameters()
@@ -17,10 +18,12 @@ class SparseInputLinear(nn.Module):
     def reset_parameters(self):
         stdv = 1./np.sqrt(self.weight.size(1))
         self.weight.data.uniform_(-stdv, stdv)
-        self.bias.data.uniform(-stdv, stdv)
+        self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
-        return torch.mm(x, self.weight) + self.bias
+        x = x.float()
+        # x = torch.tensor(x, dtype = torch.float32).cuda()
+        return torch.mm(x.unsqueeze(0), self.weight).squeeze(0) + self.bias
 
 class multi_HAN(nn.Module):
     def __init__(self, n_nodes_list, args):
@@ -31,13 +34,14 @@ class multi_HAN(nn.Module):
         self.n_facet = args.n_facet
         self.emb_dim = args.emb_dim
         self.niter = args.iter
+        self.dev = dev
         if self.dataset == 'yelp':
             n_users, n_businesses, n_cities, n_categories = n_nodes_list
             cur_dim = self.n_facet * self.emb_dim
-            self.user_embed_init = SparseInputLinear(n_users, cur_dim)
-            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim)
-            self.city_embed_init = SparseInputLinear(n_cities, cur_dim)
-            self.category_embed_init = SparseInputLinear(n_categories, cur_dim)
+            self.user_embed_init = SparseInputLinear(n_users, cur_dim).to(dev)
+            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim).to(dev)
+            self.city_embed_init = SparseInputLinear(n_cities, cur_dim).to(dev)
+            self.category_embed_init = SparseInputLinear(n_categories, cur_dim).to(dev)
         else:
             print('dataset wrong!')
 
