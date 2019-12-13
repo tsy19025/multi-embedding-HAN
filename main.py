@@ -53,21 +53,26 @@ def parse_args():
                         help='optimizer to use (sgd, adam)')
     parser.add_argument('--dataset', default='yelp',
                         help='dataset name')
+    parser.add_argument('--iter', type = int, default = 5)
     args = parser.parse_args()
     args.save = args.save + args.dataset
     args.save = args.save + '_batch{}'.format(args.batch_size)
     args.save = args.save + '_lr{}'.format(args.lr)
-    args.save = args.save + '_emb{}'.format(args.embed_dim)
+    args.save = args.save + '_emb{}'.format(args.emb_dim)
     args.save = args.save + '_facet{}'.format(args.n_facet)
     args.save = args.save + '_decay{}'.format(args.decay)
     args.save = args.save + '_decaystep{}'.format(args.decay_step)
     args.save = args.save + '_patience{}.pt'.format(args.patience)
     return args
 
-def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
+def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, use_cuda):
     epoch_loss = []
     for step, batch_data in enumerate(train_data_loader):
         user, business, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
+        if use_cuda:
+            user = user.cuda()
+            business = business.cuda()
+            # user_neigh_list_lists = 
         output = model(user, business, user_neigh_list_lists, business_neigh_list_lists)
         loss = loss_fn(output, label)
         optimizer.zero_grad()
@@ -131,7 +136,7 @@ if __name__ == '__main__':
     for epoch in range(args.epochs):
         scheduler.step()
         print('Start epoch: ', epoch)
-        mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
+        mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, use_cuda)
             # total_loss += loss.data[0]
         valid_loss = valid(model, train_data_loader, optimizer, loss_fn)
         if valid_loss < best_loss:

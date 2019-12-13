@@ -23,7 +23,8 @@ class SparseInputLinear(nn.Module):
         self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
-        return torch.mm(x, self.weight) + self.bias
+        x = torch.tensor(x, dtype = torch.float32).cuda()
+        return torch.mm(x.unsqueeze(0), self.weight).squeeze(0) + self.bias
 
 class multi_HAN(nn.Module):
     def __init__(self, n_nodes_list, args):
