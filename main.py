@@ -1,24 +1,11 @@
 import argparse
-import time
-import math
-import json
-import pickle
 import numpy as np
-from numpy import array
-# from scipy import sparse
 import torch
 import pickle
 from torch.utils.data import DataLoader
 import torch.nn as nn
 from models import multi_HAN
 from torch.optim import lr_scheduler
-import torch.nn.functional as F
-import os
-import operator
-from random import sample, random, randint
-from functools import reduce
-import cProfile
-# import time
 from utils import YelpDataset
 
 def parse_args():
@@ -141,33 +128,3 @@ if __name__ == '__main__':
                 torch.save(model, f)
         if epoch-best_epoch >= args.patience:
             print('Stop training after %i epochs without improvement on validation.' % args.patience)
-            break
-
-
-
-
-    # Yelp500Dataset = YelpDataset("../yelp/review-500k.json", reviewid_to_num, userid_to_num, businessid_to_num)
-    # Yelp500DataLoader = DataLoader(dataset = Yelp500Dataset,
-    #                           batch_size = args.batch_size,
-    #                           shuffle = True,
-    #                           num_workers = 4,
-    #                           pin_memory = True,
-    #                           drop_last = True)
-
-    # t_names = ('adj_UwR', 'adj_RaB', 'adj_UtB', 'adj_BcB', 'adj_BcateB', 'adj_UfU', 'UrateB', 'UfUwR', 'UfUrB', 'UrBcateB', 'UrBcityB', 'UrateBrateU', 'RaBaR', 'RwUwR')
-    # Metapath_list = []
-    # for i in range(len(t_names)):
-    # adj = pickle.load("../yelp/adjs/"+t_names[i])
-    # Metapath_list.append(Metapath(t_names[i], t_types[i], adj))
-    print("read data end")
-    '''
-    n_user = dataset.user_adjs.shape[0]
-    n_business = dataset.business_adjs.shape[0]
-    n_cities = dataset.adjs[3].shape[1]
-    n_categories = dataset.adjs[2].shape[1]
-    n_node_list = [n_user, n_business, n_cities, n_categories]
-    model = multi_HAN(n_node_list, args)
-    for data in data_loader:
-        user, business, label, user_neighbor_list， business_neighbor_list = data
-        # ans = model(user, business, user_neighbor_list, business_neighbor_list)
-    '''
