@@ -57,7 +57,7 @@ class YelpDataset(Dataset):
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=True)
                 else:
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=False)
-                business_neigh_list.append(neighbors)
+                business_neigh_list.append(transID_onehot(self.n_businesses, neighbors))
             business_neigh_list_lists.append(business_neigh_list)
         user = transID_onehot(self.n_users, [user])
         business = transID_onehot(self.n_businesses, [business])

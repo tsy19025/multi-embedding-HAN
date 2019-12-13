@@ -22,8 +22,17 @@ class SparseInputLinear(nn.Module):
 
     def forward(self, x):
         x = x.float()
+        print(x.shape)
+        batch_size, cnt, _ = x.shape
+        bias = torch.cat([self.bias for i in range(cnt)], dim = 0).view(cnt, -1)
+        bias = torch.cat([bias for i in range(batch_size)], dim = 0).view(batch_size, cnt, -1)
+        # .view(cnt, -1)
         # x = torch.tensor(x, dtype = torch.float32).cuda()
-        return torch.mm(x.unsqueeze(0), self.weight).squeeze(0) + self.bias
+        a = torch.matmul(x, self.weight)
+        print(a.shape)
+        print(bias.shape)
+        return a + bias
+        # return torch.matmul(x, self.weight) + bias
 
 class multi_HAN(nn.Module):
     def __init__(self, n_nodes_list, args):
@@ -63,7 +72,7 @@ class multi_HAN(nn.Module):
             business_homo_encoder_list = []
             for list_index in range(len(business_neigh_list_lists)):
                 for neigh in business_neigh_list_lists[list_index]:
-                    business_neigh_embed = neigh_emb_list[list_index](neigh)
+                    business_neigh_embed = neigh_emb_list[list_index](neigh) # debug!
                     business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
                     business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
             business_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)

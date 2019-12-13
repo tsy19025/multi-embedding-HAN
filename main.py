@@ -31,7 +31,7 @@ def parse_args():
                         help='upper epoch limit')
     parser.add_argument('--patience', type=int, default=5,
                         help='Extra iterations before early-stopping')
-    parser.add_argument('--batch_size', type=int, default=64, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=60, metavar='N',
                         help='batch size')
     parser.add_argument('--cuda', action='store_true', default=True,
                         help='use GPU for training')
