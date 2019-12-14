@@ -49,14 +49,17 @@ class YelpDataset(Dataset):
         business_city_adjs = [self.adjs[3]]
         business_category_adjs = [self.adjs[2]]
         business_neigh_adjs = [business_user_adjs, business_business_adjs, business_city_adjs, business_category_adjs]
-        for adjs in business_neigh_adjs:
+        for adjs_index in range(len(business_neigh_adjs)):
             business_neigh_list = []
+            adjs = business_user_adjs[adjs_index]
+            n_nodes = n_nodes_list[adjs_index]
             for adj in adjs:
                 neighbors_index = np.nonzero(adj[business])[0]
                 if len(neighbors_index) < self.neighbor_size:
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=True)
                 else:
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=False)
+                neighbors = transID_onehot(n_nodes, neighbors)
                 business_neigh_list.append(neighbors)
             business_neigh_list_lists.append(business_neigh_list)
         user = transID_onehot(self.n_users, [user])

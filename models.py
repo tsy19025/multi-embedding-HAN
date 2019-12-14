@@ -29,19 +29,19 @@ class multi_HAN(nn.Module):
     def __init__(self, n_nodes_list, args):
         super(multi_HAN, self).__init__()
         user_cuda = torch.cuda.is_available() and args.cuda
-        dev = torch.device('cuda' if user_cuda else 'cpu')
+        device = torch.device('cuda' if user_cuda else 'cpu')
         self.dataset = args.dataset
         self.n_facet = args.n_facet
         self.emb_dim = args.emb_dim
         self.niter = args.iter
-        self.dev = dev
+        # self.dev = dev
         if self.dataset == 'yelp':
             n_users, n_businesses, n_cities, n_categories = n_nodes_list
             cur_dim = self.n_facet * self.emb_dim
-            self.user_embed_init = SparseInputLinear(n_users, cur_dim).to(dev)
-            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim).to(dev)
-            self.city_embed_init = SparseInputLinear(n_cities, cur_dim).to(dev)
-            self.category_embed_init = SparseInputLinear(n_categories, cur_dim).to(dev)
+            self.user_embed_init = SparseInputLinear(n_users, cur_dim).to(device)
+            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim).to(device)
+            self.city_embed_init = SparseInputLinear(n_cities, cur_dim).to(device)
+            self.category_embed_init = SparseInputLinear(n_categories, cur_dim).to(device)
         else:
             print('dataset wrong!')
 
