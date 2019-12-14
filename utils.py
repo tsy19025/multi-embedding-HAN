@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import pickle
 
 def transID_onehot(n_nodes, IDs):
-    onehot = np.zeros([len(IDs), n_nodes])
+    onehot = np.zeros([len(IDs), n_nodes], dtype=np.float32)
     onehot[range(len(IDs)), IDs] = 1
     return onehot
 
@@ -21,7 +21,7 @@ class YelpDataset(Dataset):
     def __getitem__(self, index):
         user = self.data[index]['user_id']
         business = self.data[index]['business_id']
-        label = self.data[index]['rate']
+        label = np.array([self.data[index]['rate']], dtype=np.float32)
         user_neigh_list_lists = []
         business_neigh_list_lists = []
         user_user_adjs = [self.adjs[0], self.adjs[5]]
@@ -37,7 +37,6 @@ class YelpDataset(Dataset):
             for adj in adjs:
                 neighbors_index = np.nonzero(adj[user])[0]
                 if len(neighbors_index) < self.neighbor_size:
-                    # print("not enough ", neighbors_index)
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=True)
                 else:
                     neighbors = np.random.choice(neighbors_index, size=self.neighbor_size, replace=False)
@@ -51,7 +50,7 @@ class YelpDataset(Dataset):
         business_neigh_adjs = [business_user_adjs, business_business_adjs, business_city_adjs, business_category_adjs]
         for adjs_index in range(len(business_neigh_adjs)):
             business_neigh_list = []
-            adjs = business_user_adjs[adjs_index]
+            adjs = business_neigh_adjs[adjs_index]
             n_nodes = n_nodes_list[adjs_index]
             for adj in adjs:
                 neighbors_index = np.nonzero(adj[business])[0]

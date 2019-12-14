@@ -45,8 +45,8 @@ class HeteAttention(nn.Module):
                 u = fn.normalize(u, dim=2)
         return u.view(batch_size, self.n_facet*self.emb_dim)
 
-class UserItemAttention():
-    def __init__(self, emb_dim, n_facet):
+class UserItemAttention(nn.Module):
+    def __init__(self, emb_dim, n_facet, device):
         super(UserItemAttention, self).__init__()
         # self.has_residual = has_residual
         # self.num_values = num_values
@@ -73,9 +73,9 @@ class UserItemAttention():
         u_i_p = fn.softmax(u_i_p, dim=1)
         u_emb_combined = u_emb_combined.view(batch_size, self.n_facet, 1, self.emb_dim).expand(-1, -1, self.n_facet, -1)
         i_emb_combined = i_emb_combined.view(batch_size, 1, self.n_facet, self.emb_dim).expand(-1, self.n_facet, -1, -1)
-        u_i_emb_combined = torch.cat([u_emb_combined, i_emb_combined], dim=3).view(batch_size, self.n_facet*self.n_facet, self.emb_dim)
+        u_i_emb_combined = torch.cat([u_emb_combined, i_emb_combined], dim=3).view(batch_size, self.n_facet*self.n_facet, 2*self.emb_dim)
         final_states = torch.tanh(self.combined_layer(u_i_emb_combined))
-        final_states = final_states*u_i_p
+        final_states = torch.sum(final_states*u_i_p, dim=1)
         predic = torch.sigmoid(self.fc(final_states))
         return predic
 

@@ -11,12 +11,14 @@ import time
 
 def parse_args():
     parser = argparse.ArgumentParser(description='multi-embedding-HAN')
-    parser.add_argument('--emb_dim', type=int, default=64,
+    parser.add_argument('--emb_dim', type=int, default=10,
                         help='dimension of embeddings')
     parser.add_argument('--n_facet', type=int, default=10,
                         help='number of facet for each embedding')
     parser.add_argument('--neigh_size', type=int, default=50,
                         help='number of neighbor to sample')
+    parser.add_argument('--n_iter', type=int, default=5,
+                        help='number of iterations when routing')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='initial learning rate')
     parser.add_argument('--decay', type=float, default=0.8,
@@ -50,6 +52,8 @@ def parse_args():
     args.save = args.save + '_lr{}'.format(args.lr)
     args.save = args.save + '_emb{}'.format(args.emb_dim)
     args.save = args.save + '_facet{}'.format(args.n_facet)
+    args.save = args.save + '_iter{}'.format(args.n_iter)
+    args.save = args.save + '_neighsize{}'.format(args.neigh_size)
     args.save = args.save + '_decay{}'.format(args.decay)
     args.save = args.save + '_decaystep{}'.format(args.decay_step)
     args.save = args.save + '_patience{}.pt'.format(args.patience)
@@ -64,7 +68,6 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, device)
         user_neigh_list_lists = [[neigh.to(device) for neigh in user_neigh_list] for user_neigh_list in user_neigh_list_lists]
         business_neigh_list_lists = [[neigh.to(device) for neigh in business_neigh_list] for business_neigh_list in business_neigh_list_lists]
         label = label.to(device)
-
         # for user_neigh_list in user_neigh_list_lists:
         #     print(type(user_neigh_list), len(user_neigh_list))
         #     print(user_neigh_list)

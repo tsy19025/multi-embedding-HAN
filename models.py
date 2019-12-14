@@ -21,27 +21,25 @@ class SparseInputLinear(nn.Module):
         self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
-        x = x.float()
-        # x = torch.tensor(x, dtype = torch.float32).cuda()
-        return torch.mm(x.unsqueeze(0), self.weight).squeeze(0) + self.bias
+        return torch.matmul(x, self.weight) + self.bias
 
 class multi_HAN(nn.Module):
     def __init__(self, n_nodes_list, args):
         super(multi_HAN, self).__init__()
         user_cuda = torch.cuda.is_available() and args.cuda
-        device = torch.device('cuda' if user_cuda else 'cpu')
+        self.device = torch.device('cuda' if user_cuda else 'cpu')
         self.dataset = args.dataset
         self.n_facet = args.n_facet
         self.emb_dim = args.emb_dim
-        self.niter = args.iter
+        self.n_iter = args.n_iter
         # self.dev = dev
         if self.dataset == 'yelp':
             n_users, n_businesses, n_cities, n_categories = n_nodes_list
             cur_dim = self.n_facet * self.emb_dim
-            self.user_embed_init = SparseInputLinear(n_users, cur_dim).to(device)
-            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim).to(device)
-            self.city_embed_init = SparseInputLinear(n_cities, cur_dim).to(device)
-            self.category_embed_init = SparseInputLinear(n_categories, cur_dim).to(device)
+            self.user_embed_init = SparseInputLinear(n_users, cur_dim).to(self.device)
+            self.business_embed_init = SparseInputLinear(n_businesses, cur_dim).to(self.device)
+            self.city_embed_init = SparseInputLinear(n_cities, cur_dim).to(self.device)
+            self.category_embed_init = SparseInputLinear(n_categories, cur_dim).to(self.device)
         else:
             print('dataset wrong!')
 
@@ -55,21 +53,21 @@ class multi_HAN(nn.Module):
             for list_index in range(len(user_neigh_list_lists)):
                 for neigh in user_neigh_list_lists[list_index]:
                     user_neigh_embed = neigh_emb_list[list_index](neigh)
-                    user_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                    user_homo_encoder = HomoAttention(self.emb_dim, self.n_facet).to(self.device)
                     user_homo_encoder_list.append(user_homo_encoder(user_embed, user_neigh_embed))
-            user_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)
+            user_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.n_iter).to(self.device)
             updated_user_embed = user_hete_encoder(user_embed, torch.stack(user_homo_encoder_list, dim=1))
             #business embedding propagete
             business_homo_encoder_list = []
             for list_index in range(len(business_neigh_list_lists)):
                 for neigh in business_neigh_list_lists[list_index]:
                     business_neigh_embed = neigh_emb_list[list_index](neigh)
-                    business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet)
+                    business_homo_encoder = HomoAttention(self.emb_dim, self.n_facet).to(self.device)
                     business_homo_encoder_list.append(business_homo_encoder(business_embed, business_neigh_embed))
-            business_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.niter)
-            updated_business_embed = business_hete_encoder(user_embed, torch.stack(business_homo_encoder_list, dim=1))
+            business_hete_encoder = HeteAttention(self.emb_dim, self.n_facet, self.n_iter).to(self.device)
+            updated_business_embed = business_hete_encoder(business_embed, torch.stack(business_homo_encoder_list, dim=1))
         logit = self.autocross(updated_user_embed, updated_business_embed)
         return fn.softmax(logit, dim=1)
     def autocross(self, user_emb, business_emb):
-        user_item_fusion_layer = UserItemAttention(self.emb_dim, self.n_facet)
+        user_item_fusion_layer = UserItemAttention(self.emb_dim, self.n_facet, self.device).to(self.device)
         return user_item_fusion_layer(user_emb, business_emb)

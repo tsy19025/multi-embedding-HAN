@@ -101,7 +101,10 @@ def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_
         filtered_review = {}
         filtered_review['user_id'] = userid_to_num[review['user_id']]
         filtered_review['business_id'] = businessid_to_num[review['business_id']]
-        filtered_review['rate'] = int(review['stars'])
+        if int(review['stars']) > 3:
+            filtered_review['rate'] = 1.0
+        else:
+            filtered_review['rate'] = 0.0
         selected_reviews.append(filtered_review)
     n_reviews = len(selected_reviews)
     test_indices = np.random.choice(range(n_reviews), size=int(n_reviews*test_ratio), replace=False)
@@ -142,6 +145,7 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
         # business_id = businessid_to_num[review['business_id']]
         user_id = review['user_id']
         business_id = review['business_id']
+        # if review['rate'] > 0:
         adj_UB[user_id][business_id] = 1
     #relation B_Ca B_Ci
     for business in businesses:
