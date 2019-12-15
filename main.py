@@ -46,6 +46,8 @@ def parse_args():
     parser.add_argument('--dataset', default='yelp',
                         help='dataset name')
     parser.add_argument('--iter', type = int, default = 5)
+    parser.add_argument('--mode', choices=['train', 'test'], default='train', type=str,
+                        help='Passing "test" will only run a single evaluation, otherwise full training will be performed')
     args = parser.parse_args()
     args.save = args.save + args.dataset
     args.save = args.save + '_batch{}'.format(args.batch_size)
@@ -101,7 +103,8 @@ if __name__ == '__main__':
     args = parse_args()
     if args.dataset == 'yelp':
         adj_paths = []
-        adj_names = ['adj_UU', 'adj_UB', 'adj_BCa', 'adj_BCi', 'adj_UUB', 'adj_UBU', 'adj_UBUB', 'adj_UBCa', 'adj_UBCi', 'adj_BCaB', 'adj_BCiB']
+        adj_names = ['adj_UU', 'adj_UB_pos', 'adj_UB_neg', 'adj_BCa', 'adj_BCi', 'adj_UUB_pos', 'adj_UUB_neg', 'adj_UB_pos_U', 'adj_UB_neg_U', \
+    'adj_UB_pos_UB_pos', 'adj_UB_neg_UB_neg', 'adj_UB_pos_Ca', 'adj_UB_neg_Ca', 'adj_UB_pos_Ci', 'adj_UB_neg_Ci', 'adj_BCaB', 'adj_BCiB']
         for name in adj_names:
             adj_paths.append('yelp_dataset/adjs/' + name)
         train_data_path = 'yelp_dataset/rates/rate_train'
