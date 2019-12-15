@@ -97,6 +97,14 @@ def valid(model, valid_data_loader, loss_fn):
     print('Valid:\tLoss:%f' % (mean_valid_loss))
     return mean_valid_loss
 
+def evaluate(model, evaluate_data_loader, evaluate_fn):
+    evaluation = 0
+    for step, batch_data in enumerate(evaluate_data_loader):
+        user, business, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
+        output = model(user, business, user_neigh_list_lists, business_neigh_list_lists)
+        evaluation += evaluate_fn(output, label)
+    return evaluation
+
 if __name__ == '__main__':
     args = parse_args()
     if args.dataset == 'yelp':
@@ -106,6 +114,7 @@ if __name__ == '__main__':
             adj_paths.append('yelp_dataset/adjs/' + name)
         train_data_path = 'yelp_dataset/rates/rate_train'
         valid_data_path = 'yelp_dataset/rates/rate_valid'
+        evaluate_data_path = 'yelp_dataset/rates/rate_test'
         num_to_id_paths = []
         num_to_ids = []
         num_to_id_names = ['num_to_userid', 'num_to_businessid', 'num_to_cityid', 'num_to_categoryid']
@@ -121,18 +130,22 @@ if __name__ == '__main__':
                                 shuffle = True,
                                 num_workers = 4,
                                 pin_memory = True)
+        
         valid_data_loader = DataLoader(dataset=YelpDataset(n_nodes_list, valid_data_path, adj_paths, args.neigh_size),
                                        batch_size=args.batch_size,
                                        shuffle=True,
                                        num_workers=4,
                                        pin_memory=True)
 
+        evaluate_data_loader = DataLoader(dataset=YelpDataset(n_nodes_list, evaluate_data_path, adj_paths, args.neigh_size),
+                                          batch_size = args.batch_size, shuffle = True, num_workers = 4, pin_memory = True)
+
     use_cuda = torch.cuda.is_available() and args.cuda
     device = torch.device('cuda' if use_cuda else 'cpu')
     model = multi_HAN(n_nodes_list, args).to(device)
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=args.decay_step, gamma=args.decay)
-    loss_fn = nn.MSELoss(reduce=True, size_average=True).to(device)
+    loss_fn = nn.MSELoss(reduce=True, reduction = 'mean').to(device)
     best_loss = 100.0
     best_epoch = -1
     for epoch in range(args.epochs):
@@ -149,3 +162,5 @@ if __name__ == '__main__':
         if epoch-best_epoch >= args.patience:
             print('Stop training after %i epochs without improvement on validation.' % args.patience)
             break
+    evaluate_fn = nn.L1loss(reduce = True, reduction = 'mean').to(device)
+    print(evaluate(model, evaluate_data_loader, evaluate_fn))
