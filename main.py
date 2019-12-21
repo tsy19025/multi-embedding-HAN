@@ -168,7 +168,7 @@ def eval(model, eval_data_loader, device, K):
 def valid(model, valid_data_loader, device):
     print('Start Valid')
     mean_p, mean_r, mean_ndcg = eval(model, valid_data_loader, device, 20)
-    print('Test:\tprecision@10:%f, recall@10:%f, ndcg@10:%f' % (mean_p, mean_r, mean_ndcg))
+    print('Valid:\tprecision@10:%f, recall@10:%f, ndcg@10:%f' % (mean_p, mean_r, mean_ndcg))
     return mean_p, mean_r, mean_ndcg
 
 def test(model, test_data_loader, device):
