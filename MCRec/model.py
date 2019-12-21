@@ -68,9 +68,9 @@ def MCRec(nn.Module):
         self.matapath_attention = MetapathAttention(3 * latent_dim, latent_dim)
         self.prediction_layer = nn.Linear(3 * latent_dim, 1)
     def forward(self, user_input, item_input, path_inputs):
-        user_input: batch_size * 1(one_hot)
-        item_input: batch_size * 1(one_hot)
-        path_intpus: batch_size * paths * path_num * timestamp * length
+        # user_input: batch_size * 1(one_hot)
+        # item_input: batch_size * 1(one_hot)
+        # path_intpus: batch_size * paths * path_num * timestamp * length
 
         paths = path_inputs.shape[0]
         user_latent = [self.user_embedding(user) for user in user_input]
