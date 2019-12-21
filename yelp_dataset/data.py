@@ -129,15 +129,9 @@ def filter_rare_node(users, businesses, reviews, user_threshold, business_thresh
 def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_ratio, test_ratio, n_neg_sample):
     selected_reviews = []
     for review in reviews:
-        # if (review['user_id'] not in userid_to_num) or (review['business_id'] not in businessid_to_num):
-        #     continue
         filtered_review = {}
         filtered_review['user_id'] = userid_to_num[review['user_id']]
         filtered_review['business_id'] = businessid_to_num[review['business_id']]
-        # if int(review['stars']) > 3:
-        #     filtered_review['rate'] = 1.0
-        # else:
-        #     filtered_review['rate'] = 0.0
         filtered_review['rate'] = 1.0
         filtered_review['timestamp'] = time.mktime(datetime.datetime.strptime(review['date'], '%Y-%m-%d %H:%M:%S').timetuple())
         selected_reviews.append(filtered_review)
@@ -148,14 +142,30 @@ def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_
     train_data = [selected_reviews_sorted[index] for index in range(train_size)]
     valid_data = [selected_reviews_sorted[index] for index in range(train_size, train_size+valid_size)]
     test_data = [selected_reviews_sorted[index] for index in range(train_size+valid_size, n_reviews)]
-    data_list = [train_data, valid_data, test_data]
+    selected_users = set()
+    selected_businesses = set()
+    for review in train_data:
+        selected_users.add(review['user_id'])
+        selected_businesses.add(review['business_id'])
+    eval_datas = [valid_data, test_data]
+    selected_eval_datas = [[] for _ in range(len(eval_datas))]
+    for eval_index in range(len(eval_datas)):
+        eval_data = eval_datas[eval_index]
+        for review in eval_data:
+            if review['user_id'] in selected_users and review['business_id'] in selected_businesses:
+                selected_eval_datas[eval_index].append(review)
+    selected_valid_data, selected_test_data = selected_eval_datas
+    data_list = [train_data, selected_valid_data, selected_test_data]
     data_for_user_list = [{} for _ in range(len(data_list))]
+    train_data_for_item = set()
     for index in range(len(data_list)):
         data = data_list[index]
         data_for_user = data_for_user_list[index]
         for review in data:
             user = review['user_id']
             item = review['business_id']
+            if index == 0:
+                train_data_for_item.add(item)
             if user not in data_for_user:
                 data_for_user[user] = [item]
             else:
@@ -170,14 +180,14 @@ def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_
     for index in range(len(with_neg_list)):
         current_data = with_neg_list[index]
         for user in current_data.keys():
-            if user not in train_data_for_user:
+            if user not in selected_users:
                 continue
             user_eval = {}
-            item_set = set(range(len(userid_to_num))) - set(train_data_for_user[user]) - set(current_data[user])
-            sample_item = np.random.choice(list(item_set), size=n_neg_sample, replace=False)
+            business_set = selected_businesses - set(train_data_for_user[user]) - set(current_data[user])
+            sample_businesses = np.random.choice(list(business_set), size=n_neg_sample, replace=False)
             user_eval['user_id'] = user
-            user_eval['pos_bussiness_id'] = current_data[user]
-            user_eval['neg_bussiness_id'] = list(sample_item)
+            user_eval['pos_business_id'] = current_data[user]
+            user_eval['neg_business_id'] = list(sample_businesses)
             data_with_neg_list[index].append(user_eval)
             # data_with_neg_list[index][user] = list(current_data[user])
             # data_with_neg_list[index][user].extend(list(sample_item))
@@ -191,7 +201,7 @@ def dataset_split(reviews, userid_to_num, businessid_to_num, train_ratio, valid_
     # valid_data = [selected_reviews[index] for index in valid_indices]
     # test_data = [selected_reviews[index] for index in test_indices]
     # return train_data, valid_data, test_data, train_data_for_user, valid_data_for_user, test_data_for_user, valid_with_neg, test_with_neg
-    return train_data, valid_data, test_data, valid_with_neg, test_with_neg
+    return train_data, selected_valid_data, selected_test_data, valid_with_neg, test_with_neg
 
 def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_to_num, users, businesses, reviews):
     tot_users = len(userid_to_num)
@@ -236,14 +246,14 @@ def get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_t
     # for i in range(tot_users):
     #     if sum(adj_UB_neg[i,:])==0:
     #         print(i)
-    print('split users')
-    for i in range(tot_users):
-        if sum(adj_UB[i,:]) == 0:
-            print(i)
-    print('split businesses')
-    for j in range(tot_business):
-        if sum(adj_UB[:,j]) == 0:
-            print(j)
+    # print('split users')
+    # for i in range(tot_users):
+    #     if sum(adj_UB[i,:]) == 0:
+    #         print(i)
+    # print('split businesses')
+    # for j in range(tot_business):
+    #     if sum(adj_UB[:,j]) == 0:
+    #         print(j)
 
     #relation B_Ca B_Ci
     for business in businesses:
@@ -298,11 +308,11 @@ if __name__ == '__main__':
             pickle.dump(r[i], f, protocol=4)
     # review_train, review_valid, review_test, train_data_for_user, valid_data_for_user, test_data_for_user, valid_data_with_neg, test_data_with_neg = \
     #     dataset_split(filtered_reviews, userid_to_num, businessid_to_num, 0.8, 0.1, 0.1, 50)
-    review_train, review_valid, review_test, valid_data_with_neg, test_data_with_neg = dataset_split(filtered_reviews, userid_to_num, businessid_to_num, 0.8, 0.1, 0.1, 50)
 
     # adj_UU, adj_UB_pos, adj_UB_neg, adj_BCa, adj_BCi, adj_UUB_pos, adj_UUB_neg, adj_UB_pos_U, adj_UB_neg_U, \
     # adj_UB_pos_UB_pos, adj_UB_neg_UB_neg, adj_UB_pos_Ca, adj_UB_neg_Ca, adj_UB_pos_Ci, adj_UB_neg_Ci, adj_BCaB, adj_BCiB = \
     #     get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_to_num, user_json, business_json, review_train)
+    review_train, review_valid, review_test, valid_data_with_neg, test_data_with_neg = dataset_split(filtered_reviews, userid_to_num, businessid_to_num, 0.8, 0.1, 0.1, 50)
     adj_UU, adj_UB, adj_BCi, adj_BCa, adj_UUB, adj_UBU, adj_UBUB, adj_UBCi, adj_UBCa, adj_BCaB, adj_BCiB = \
         get_adj_matrix(userid_to_num, businessid_to_num, cityid_to_num, categoryid_to_num, user_json, business_json, review_train)
     # relation save

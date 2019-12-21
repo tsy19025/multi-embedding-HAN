@@ -8,6 +8,7 @@ import torch.nn as nn
 from models import multi_HAN
 from torch.optim import lr_scheduler
 from utils import YelpDataset
+from metrics import *
 import time
 
 def parse_args():
@@ -64,12 +65,17 @@ def parse_args():
     args.save = args.save + '_patience{}.pt'.format(args.patience)
     return args
 
+
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
 def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, device, args):
     model.train()
     epoch_loss = []
     for step, batch_data in enumerate(train_data_loader):
         # user, pos_business, neg_businesses, label, user_neigh_list_lists, pos_business_neigh_list_lists, neg_business_neigh_list_lists = batch_data
-        user, businesses, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
+        users, businesses, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
         users = users.to(device)
         businesses = businesses.to(device)
         # neg_businesses = [neg_business.to(device) for neg_business in neg_businesses]
@@ -89,14 +95,13 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, device,
         # print('un')
         # print([[n.shape for n in list] for list in user_neigh_list_lists])
         # print('pn')
-        # print([[n.shape for n in list] for list in pos_business_neigh_list_lists])
-        # print('nn')
-        # print([[[n.shape for n in list] for list in neg] for neg in neg_business_neigh_list_lists])
+        # print([[n.shape for n in list] for list in business_neigh_list_lists])
         # time.sleep(10)
 
         optimizer.zero_grad()
-        output = model(user, businesses, user_neigh_list_lists, business_neigh_list_lists)
+        output = model(users, businesses, user_neigh_list_lists, business_neigh_list_lists)
         loss = loss_fn(output, label)
+        loss = torch.mean(torch.sum(loss, 1))
         loss.backward()
         # for name, parms in model.named_parameters():
         #     print('-->name:', name, '-->grad_requirs:', parms.requires_grad, ' -->grad_value:', parms.grad)
@@ -105,30 +110,30 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, device,
         if (step % args.log_step == 0) and step > 0:
             print('Train epoch: {}[{}/{} ({:.0f}%)]\tLr:{:.6f}, Loss: {:.6f}, AvgL: {:.6f}'.format(epoch, step, len(train_data_loader),
                                                     100. * step / len(train_data_loader), get_lr(optimizer), loss.item(), np.mean(epoch_loss)))
-        def get_lr(optimizer):
-            for param_group in optimizer.param_groups:
-                return param_group['lr']
+
     mean_epoch_loss = np.mean(epoch_loss)
     return mean_epoch_loss
 
-def evaluate(logit, label, K):
-    # out = torch.cat([logit, label], 0)
-    out = torch.topk(logit, K, dim=1)[1]
-    real_indices = torch.nonzero(label)[:, 1]
-    ifzero = (out == real_indices)
-    hits = ifzero.sum()
-    ndcg = (math.log(2) / (torch.nonzero(ifzero)[:,1].view(-1).to(torch.float)+2).log_()).sum()
-    return hits, ndcg
+# def evaluate(logit, label, K):
+#     # out = torch.cat([logit, label], 0)
+#     pred_items = torch.topk(logit, K, dim=1)[1][0]
+#     pred_items = pred_items.tolist()
+#     gt_items = torch.nonzero(label)[:, 1].tolist()
+#     p_at_k = getP(pred_items, gt_items)
+#     r_at_k = getR(pred_items, gt_items)
+#     ndcg_at_k = getNDCG(pred_items, gt_items)
+#     # ndcg = (math.log(2) / (torch.nonzero(ifzero)[:,1].view(-1).to(torch.float)+2).log_()).sum()
+#     return p_at_k, r_at_k, ndcg_at_k
 
-def valid(model, valid_data_loader, loss_fn, device, args):
-    print('Start valid')
+def eval(model, eval_data_loader, device, K):
     model.eval()
     # valid_loss = 0
     # n_valid = 0
-    valid_hits = []
-    valid_ndcg = []
+    eval_p = []
+    eval_r = []
+    eval_ndcg = []
     with torch.no_grad():
-        for step, batch_data in enumerate(valid_data_loader):
+        for step, batch_data in enumerate(eval_data_loader):
             users, businesses, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
             # n_valid += len(label)
             # n_valid += 1
@@ -142,41 +147,60 @@ def valid(model, valid_data_loader, loss_fn, device, args):
             logit = model(users, businesses, user_neigh_list_lists, business_neigh_list_lists)
             # loss = loss_fn(output, label)
             # valid_loss += loss.item()
-            hits, ndcg = evaluate(logit, label, 10)
-            valid_hits.append(hits.item())
-            valid_ndcg.append(ndcg.item())
+            # p_at_k, r_at_k, ndcg_at_k = evaluate(logit, label, 20)
+            pred_items = torch.topk(logit, K, dim=1)[1][0]
+            pred_items = pred_items.tolist()
+            gt_items = torch.nonzero(label)[:, 1].tolist()
+            p_at_k = getP(pred_items, gt_items)
+            r_at_k = getR(pred_items, gt_items)
+            ndcg_at_k = getNDCG(pred_items, gt_items)
+
+            eval_p.append(p_at_k)
+            eval_r.append(r_at_k)
+            eval_ndcg.append(ndcg_at_k)
         # mean_valid_loss = valid_loss/n_valid
     # print('Valid:\tLoss:%f' % (mean_valid_loss))
-    mean_hr = np.mean(valid_hits)
-    mean_ndcg = np.mean(valid_ndcg)
-    print('Valid:\thits@10:%f, ndcg@10%f', (mean_hr, mean_ndcg))
-    return mean_hr, mean_ndcg
+    mean_p = np.mean(eval_p)
+    mean_r = np.mean(eval_r)
+    mean_ndcg = np.mean(eval_ndcg)
+    return mean_p, mean_r, mean_ndcg
 
-def test(model, evaluate_data_loader):
+def valid(model, valid_data_loader, device):
+    print('Start Valid')
+    mean_p, mean_r, mean_ndcg = eval(model, valid_data_loader, device, 20)
+    print('Test:\tprecision@10:%f, recall@10:%f, ndcg@10:%f' % (mean_p, mean_r, mean_ndcg))
+    return mean_p, mean_r, mean_ndcg
+
+def test(model, test_data_loader, device):
     print('Start Test')
-    model.eval()
-    evaluation = 0
-    n_eval = 0
-    with torch.no_grad():
-        for step, batch_data in enumerate(evaluate_data_loader):
-            user, pos_business, neg_businesses, label, user_neigh_list_lists, pos_business_neigh_list_lists, neg_business_neigh_list_lists = batch_data
-            n_eval += len(label)
-            user = user.to(device)
-            pos_business = pos_business.to(device)
-            neg_businesses = [neg_business.to(device) for neg_business in neg_businesses]
-            label = label.to(device)
-            user_neigh_list_lists = [[neigh.to(device) for neigh in user_neigh_list] for user_neigh_list in
-                                     user_neigh_list_lists]
-            pos_business_neigh_list_lists = [[neigh.to(device) for neigh in pos_business_neigh_list] for
-                                             pos_business_neigh_list in pos_business_neigh_list_lists]
-            neg_business_neigh_list_lists = [[[neigh.to(device) for neigh in neg_business_neigh_list] for neg_business_neigh_list in
-                                            neg_business_neigh_list_lists[neg]] for neg in range(args.n_neg)]
-            output = model(user, pos_business, neg_businesses, user_neigh_list_lists, pos_business_neigh_list_lists, neg_business_neigh_list_lists)
-            eval = evaluate_fn(output, label)
-            evaluation += eval.item()
-        mean_evaluation = evaluation/n_eval
-    print('Eval:\tMAE:%f' % (mean_evaluation))
-    return mean_evaluation
+    mean_p, mean_r, mean_ndcg = eval(model, test_data_loader, device, 20)
+    print('Test:\tprecision@10:%f, recall@10:%f, ndcg@10:%f' % (mean_p, mean_r, mean_ndcg))
+    # model.eval()
+    # # evaluation = 0
+    # # n_eval = 0
+    # test_p = []
+    # test_r = []
+    # test_ndcg = []
+    # with torch.no_grad():
+    #     for step, batch_data in enumerate(evaluate_data_loader):
+    #         users, businesses, label, user_neigh_list_lists, business_neigh_list_lists = batch_data
+    #         users = users.to(device)
+    #         businesses = businesses.to(device)
+    #         label = label.to(device)
+    #         user_neigh_list_lists = [[neigh.to(device) for neigh in user_neigh_list] for user_neigh_list in
+    #                                  user_neigh_list_lists]
+    #         business_neigh_list_lists = [[neigh.to(device) for neigh in business_neigh_list] for
+    #                                      business_neigh_list in business_neigh_list_lists]
+    #         logit = model(users, businesses, user_neigh_list_lists, business_neigh_list_lists)
+    #         p_at_k, r_at_k, ndcg_at_k = evaluate(logit, label, 20)
+    #         test_p.append(p_at_k)
+    #         test_r.append(r_at_k)
+    #         test_ndcg.append(ndcg_at_k)
+    #         eval = evaluate_fn(output, label)
+    #         evaluation += eval.item()
+    #     mean_evaluation = evaluation/n_eval
+    # print('Eval:\tMAE:%f' % (mean_evaluation))
+    # return mean_evaluation
 
 if __name__ == '__main__':
     args = parse_args()
@@ -218,7 +242,7 @@ if __name__ == '__main__':
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
         scheduler = lr_scheduler.StepLR(optimizer, step_size=args.decay_step, gamma=args.decay)
         # loss_fn = nn.MSELoss(reduction='mean')
-        loss_fn = nn.BCEWithLogitsLoss(reduction='mean').to(device)
+        loss_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)
         best_loss = 100.0
         best_epoch = -1
         for epoch in range(args.epochs):
@@ -226,8 +250,8 @@ if __name__ == '__main__':
             mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch, device, args)
             # total_loss += loss.data[0]
             # valid_fn = nn.MSELoss(reduction='sum')
-            valid_fn = nn.BCEWithLogitsLoss(reduction='mean').to(device)
-            valid_loss = valid(model, valid_data_loader, valid_fn, device, args)
+            valid_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)
+            _, _, valid_loss = valid(model, valid_data_loader, device)
             scheduler.step()
             if valid_loss < best_loss:
                 best_epoch = epoch
@@ -239,13 +263,14 @@ if __name__ == '__main__':
                 print('Stop training after %i epochs without improvement on validation.' % args.patience)
                 break
     else:
-        evaluate_data_path = 'yelp_dataset/rates/rate_test'
-        evaluate_data_loader = DataLoader(dataset=YelpDataset(n_nodes_list, evaluate_data_path, adj_paths, args.neigh_size),
-                                        batch_size=args.batch_size,
+        test_data_path = 'yelp_dataset/rates/rate_test'
+        test_data_loader = DataLoader(dataset=YelpDataset(n_nodes_list, test_data_path, adj_paths, args.n_neigh, args.n_neg, 'test'),
+                                        batch_size=1,
                                         shuffle=True,
                                         num_workers=20,
                                         pin_memory=True)
         model.load_state_dict(torch.load(args.save))
         model.to(device)
-        evaluate_fn = nn.L1Loss(reduction='sum')
-        evaluate(model, evaluate_data_loader, evaluate_fn)
+        test(model, test_data_loader, device)
+        # evaluate_fn = nn.L1Loss(reduction='sum')
+        # evaluate(model, evaluate_data_loader, evaluate_fn)

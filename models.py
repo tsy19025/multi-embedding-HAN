@@ -60,7 +60,7 @@ class multi_HAN(nn.Module):
                 for neigh in user_neigh_list_lists[list_index]:
                     user_neigh_emb = neigh_emb_list[list_index](neigh)
                     user_homo_encoder_list.append(homo_encoder(user_emb, user_neigh_emb))
-            updated_user_emb = hete_encoder(user_emb, torch.stack(user_homo_encoder_list, dim=1))
+            updated_user_emb = hete_encoder(user_emb, torch.stack(user_homo_encoder_list, dim=2))
             #business embedding propagate
             business_emb = self.business_emb_init(businesses)
             business_homo_encoder_list = []
@@ -68,7 +68,7 @@ class multi_HAN(nn.Module):
                 for neigh in business_neigh_list_lists[list_index]:
                     business_neigh_emb = neigh_emb_list[list_index](neigh)
                     business_homo_encoder_list.append(homo_encoder(business_emb, business_neigh_emb))
-            updated_business_emb = hete_encoder(business_emb, torch.stack(business_homo_encoder_list, dim=1))
+            updated_business_emb = hete_encoder(business_emb, torch.stack(business_homo_encoder_list, dim=2))
             # pos_business_emb = self.business_emb_init(pos_businesses)
             # pos_business_homo_encoder_list = []
             # for list_index in range(len(pos_business_neigh_list_lists)):

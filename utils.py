@@ -1,6 +1,7 @@
 import numpy as np
 from torch.utils.data import Dataset
 import pickle
+import time
 
 def transID_onehot(n_nodes, IDs):
     onehot = np.zeros([len(IDs), n_nodes], dtype=np.float32)
@@ -9,11 +10,12 @@ def transID_onehot(n_nodes, IDs):
 
 def sample_neg_business_for_user(user, n_businesses, negative_size, adj_UB):
     neg_businesses = []
+    del_businesses = list(np.where(~adj_UB.any(axis=0))[0])
     while True:
         if len(neg_businesses) == negative_size:
             break
         neg_business = np.random.choice(range(n_businesses), size=1)[0]
-        if (adj_UB[user, neg_business] == 0) and neg_business not in neg_businesses:
+        if (adj_UB[user, neg_business] == 0) and neg_business not in neg_businesses and neg_business not in del_businesses:
             neg_businesses.append(neg_business)
     return neg_businesses
 
@@ -69,7 +71,7 @@ class YelpDataset(Dataset):
                 else:
                     neighbors = np.random.choice(neighbors_index, size=self.n_neigh, replace=False)
                 neighbors = transID_onehot(n_nodes, neighbors)
-                user_neigh_list.append(np.repeat(neighbors, n_with_neg, axis=0))
+                user_neigh_list.append(np.repeat(neighbors[np.newaxis,:,:], n_with_neg, axis=0))
             user_neigh_list_lists.append(user_neigh_list)
 
         for adjs_index in range(len(self.business_neigh_adjs)):
@@ -77,9 +79,9 @@ class YelpDataset(Dataset):
             n_nodes = self.n_nodes_list[adjs_index]
             business_neigh_list = []
             for adj_index in range(len(adjs)):
+                business_neigh = []
+                adj = adjs[adj_index]
                 for business in businesses:
-                    business_neigh = []
-                    adj = adjs[adj_index]
                     # pos business
                     # pos_neighbors_index = np.nonzero(adj[pos_business])[0]
                     # if len(pos_neighbors_index) < self.n_neigh:
@@ -92,15 +94,15 @@ class YelpDataset(Dataset):
                     # for neg in range(self.n_neg):
                     neighbors_index = np.nonzero(adj[business])[0]
                     if len(neighbors_index) < self.n_neigh:
-                        neg_neighbors = np.random.choice(neighbors_index, size=self.n_neigh, replace=True)
+                        neighbors = np.random.choice(neighbors_index, size=self.n_neigh, replace=True)
                     else:
-                        neg_neighbors = np.random.choice(neighbors_index, size=self.n_neigh, replace=False)
-                    neg_neighbors = transID_onehot(n_nodes, neg_neighbors)
-                    business_neigh.append(neg_neighbors)
-                business_neigh_list.append(np.concatenate(business_neigh, axis=0))
+                        neighbors = np.random.choice(neighbors_index, size=self.n_neigh, replace=False)
+                    neighbors = transID_onehot(n_nodes, neighbors)
+                    business_neigh.append(neighbors)
+                business_neigh_list.append(np.stack(business_neigh, axis=0))
             business_neigh_list_lists.append(business_neigh_list)
-        users = transID_onehot([user] * n_with_neg)
-        businesses = transID_onehot(businesses)
+        users = transID_onehot(self.n_users, [user] * n_with_neg)
+        businesses = transID_onehot(self.n_businesses, businesses)
         label = np.zeros([len(businesses)], dtype=np.float32)
         label[range(len(pos_businesses))] = 1.0
         # label[0] = 1.0

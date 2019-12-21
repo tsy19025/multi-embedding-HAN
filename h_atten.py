@@ -45,7 +45,7 @@ class HeteAttention(nn.Module):
             u += x
             if clus_iter < self.n_iter - 1:
                 u = fn.normalize(u, dim=3)
-        return u.view(batch_size, self.n_facet*self.emb_dim)
+        return u.view(batch_size, n_with_neg, self.n_facet*self.emb_dim)
 
 class UserItemAttention(nn.Module):
     def __init__(self, emb_dim, n_facet):
@@ -72,7 +72,7 @@ class UserItemAttention(nn.Module):
         i_emb_combined = torch.matmul(i_p, i_emb)
         ###user item attention
         u_i_p = torch.matmul(u_emb_combined, torch.transpose(i_emb_combined, 2, 3))
-        u_i_p = u_i_p.view(batch_size, self.n_facet*self.n_facet)
+        u_i_p = u_i_p.view(batch_size, n_with_neg, self.n_facet*self.n_facet)
         return torch.sum(u_i_p, 2)
         # u_i_p = u_i_p.view(batch_size, self.n_facet*self.n_facet, 1)
         # u_i_p = fn.softmax(u_i_p, dim=1)
