@@ -62,7 +62,7 @@ if __name__ == __main__:
             with open(path, 'rb') as f:
                 num_to_ids.append(pickle.load(f))
         n_node_list = [len(num_to_id) for num_to_id in num_to_ids]
-        Dataset = YelpDataset
+        Dataset = YelpDataset()
     
     use_cuda = torch.cuda.isavailable() and args.cuda
     device = torch.device('cuda' if use_cuda else 'cpu')
