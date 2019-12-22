@@ -70,12 +70,12 @@ def MCRec(nn.Module):
     def forward(self, user_input, item_input, path_inputs):
         # user_input: batch_size * 1(one_hot)
         # item_input: batch_size * 1(one_hot)
-        # path_intpus: batch_size * paths * path_num * timestamp * length
+        path_intpus: paths * batch_size * path_num * timestamp * length
 
         paths = path_inputs.shape[0]
         user_latent = [self.user_embedding(user) for user in user_input]
         item_latent = [self.item_embedding(item) for item in item_input]
-        path_latent = [self.path_embedding(path_inputs[:, i, :, :], self.path_num[i], self.timestamps[i], user_latent, item_latent) for i in range(paths)]
+        path_latent = [self.path_embedding(path_inputs[i, :, :, :], self.path_num[i], self.timestamps[i], user_latent, item_latent) for i in range(paths)]
         path_attention = self.metapath_attention(user_latent, item_latent, path_latent)
         user_attention = self.user_attention(user_latent, path_attention)
         item_attention = self.item_attention(item_latent, path_attention)

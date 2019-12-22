@@ -11,6 +11,27 @@ def parse_args():
     parse.add_argument()
 
     return parse
+def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
+    model.train()
+    sum_loss = 0
+    cnt = 0
+
+    for step, data in enumerate(train_data_loader):
+        user_input, item_input, paths = data
+        user_input = user_input.to(device)
+        item_input = item_input.to(device)
+        path_input = [path.to(device) for path in paths]
+
+        output = model(user_input, item_input, path_input)
+
+        loss = loss_fn(output, label)
+        sum_loss = sum_loss + loss.data
+        loss.backward()
+
+        optimzer.step()
+        cnt = cnt + 1
+    return sum_loss / cnt
+
 
 if __name__ == __main__:
     args = parse_args()
@@ -49,4 +70,4 @@ if __name__ == __main__:
     model = model.to(device)
     
     for epoch in range(args.epochs):
-        train_one_epoch() 
+        train_one_epoch()
