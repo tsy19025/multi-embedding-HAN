@@ -3,6 +3,7 @@ import torch
 import argparse
 import utils
 import pickle
+from utils import yelpDataset
 
 def parse_args():
     parse = argparse.ArgumentParser(description="Run MCRec.")
@@ -11,6 +12,7 @@ def parse_args():
     parse.add_argument()
 
     return parse
+
 def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
     model.train()
     sum_loss = 0
@@ -32,6 +34,8 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         cnt = cnt + 1
     return sum_loss / cnt
 
+def valid(model, valid_data_loader, loss_fn):
+    return loss
 
 if __name__ == __main__:
     args = parse_args()
@@ -62,12 +66,40 @@ if __name__ == __main__:
             with open(path, 'rb') as f:
                 num_to_ids.append(pickle.load(f))
         n_node_list = [len(num_to_id) for num_to_id in num_to_ids]
-        Dataset = YelpDataset()
-    
+
+        train_data_path = '../yelp_dataset/rates/rate_train'
+        with open(train_data_path, 'rb') as f:
+            train_data = pickel.load(f)
+        train_data_loader = DataLoader(dataset = YelpDataset(n_node_list[0], n_node_list[1], train_data, paths, args.negetive_number),
+                                       batch_size = args.batch_size,
+                                       shuffle = True,
+                                       num_workers = 20,
+                                       pin_memory = True)
+
+        valid_data_path = '../yelp_dataset/rates/valid_train'
+        with open(valid_data_path, 'rb') as f:
+            valid_data = pickel.load(f)
+        valid_data_loader = DataLoader(dataset = YelpDataset(n_node_list[0], n_node_list[1], valid_data, paths, 0),
+                                       batch_size = 1,
+                                       shuffle = True,
+                                       num_workers = 20,
+                                       pin_memory = True)
+
     use_cuda = torch.cuda.isavailable() and args.cuda
     device = torch.device('cuda' if use_cuda else 'cpu')
     model = MCRec(n_node_list, args)
     model = model.to(device)
+
+    loss_fn = 
+    valid_loss_fn = 
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=args.decay_step, gamma=args.decay)
     
+    best_loss = 100000
     for epoch in range(args.epochs):
-        train_one_epoch()
+        mean_loss = train_one_epoch(model, train_data_load, optimizer, loss_fn, epoch)
+        valid_loss = valid(model, valid_data_load, valid_loss_fn)
+        if valid_loss < best_loss:
+            best_loss = valid_loss
+            with open(args.save, 'wb') as f:
+                torch.save(model.state_dict(), f)
