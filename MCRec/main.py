@@ -3,15 +3,19 @@ import torch
 import argparse
 import utils
 import pickle
-from utils import yelpDataset
+import utils
+from utils import YelpDataset
+import os
 
 def parse_args():
     parse = argparse.ArgumentParser(description="Run MCRec.")
     parse.add_argument('--dataset', default = 'yelp', help = 'Choose a dataset.')
     parse.add_argument('--epochs', type = int, default = 30)
-    parse.add_argument()
+    parse.add_argument('--adjs_path', type = str, default = '../yelp_dataset/adjs')
+    parse.add_argument('--negetives', type = int, default = 10)
+    # parse.add_argument()
 
-    return parse
+    return parse.parse_args()
 
 def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
     model.train()
@@ -35,28 +39,33 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
     return sum_loss / cnt
 
 def valid(model, valid_data_loader, loss_fn):
-    return loss
+    return 0
 
-if __name__ == __main__:
+if __name__ == '__main__':
     args = parse_args()
     if args.dataset == 'yelp':
         path_name = ['ub_path', 'uub_path', 'ubub_path', 'ubcab_path', 'ubcib_path']
-        if os.exist('path_data/' + path_name[0]):
+        if os.path.exists('path_data/' + path_name[0]):
             paths = []
             for name in range(len(path_name)):
                 with open('path_data/' + name, 'rb') as f:
-                    paths.append(pickle.load(f))
+                    paths.append(pickel.load(f))
         else:
-            adj_BCa = pickel.load('../yelp_dataset/adjs/adj_BCa')
-            adj_BCi = pickel.load('../yelp_dataset/adjs/adj_BCi')
-            adj_UB = pickel.load('../yelp_dataset/adjs/adj_UB')
-            adj_UU = pickel.load('../yelp_dataset/adjs/adj_UU')
+            adjs_path = args.adjs_path
+            with open(adjs_path + '/adj_BCa', 'rb') as f:
+                adj_BCa = pickle.load(f)
+            with open(adjs_path + '/adj_BCi', 'rb') as f:
+                adj_BCi = pickle.load(f)
+            with open(adjs_path + '/adj_UB', 'rb') as f:
+                adj_UB = pickle.load(f)
+            with open(adjs_path + '/adj_UU', 'rb') as f:
+                adj_UU = pickle.load(f)
 
-            path_name = ['ub_path', 'uub_path', 'ubub_path', 'ubcab_path', 'ubcib_path']
-            paths = get_path(adj_BCa, adj_BCi, adj_UB, adj_UU)
+            paths = utils.get_path(adj_BCa, adj_BCi, adj_UB, adj_UU)
+            if not os.path.exists('path_data/'): os.mkdir('path_data/')
             for i in range(len(paths)):
                 with open('path_data/' + path_name[i], 'wb') as f:
-                    pickel.dump(paths[i], f, protocol = 4)
+                    pickle.dump(paths[i], f, protocol = 4)
 
         num_to_ids = []
         num_to_id_names = ['num_to_userid', 'num_to_businessid', 'num_to_cityid', 'num_to_categoryid']
@@ -64,12 +73,12 @@ if __name__ == __main__:
             num_to_id_paths.append('../yelp_dataset/adjs/' + name)
         for path in num_to_id_paths:
             with open(path, 'rb') as f:
-                num_to_ids.append(pickle.load(f))
+                num_to_ids.append(pickel.load(f))
         n_node_list = [len(num_to_id) for num_to_id in num_to_ids]
 
         train_data_path = '../yelp_dataset/rates/rate_train'
         with open(train_data_path, 'rb') as f:
-            train_data = pickel.load(f)
+            train_data = pickle.load(f)
         train_data_loader = DataLoader(dataset = YelpDataset(n_node_list[0], n_node_list[1], train_data, paths, args.negetive_number),
                                        batch_size = args.batch_size,
                                        shuffle = True,
@@ -78,7 +87,7 @@ if __name__ == __main__:
 
         valid_data_path = '../yelp_dataset/rates/valid_train'
         with open(valid_data_path, 'rb') as f:
-            valid_data = pickel.load(f)
+            valid_data = pickle.load(f)
         valid_data_loader = DataLoader(dataset = YelpDataset(n_node_list[0], n_node_list[1], valid_data, paths, 0),
                                        batch_size = 1,
                                        shuffle = True,
@@ -90,8 +99,8 @@ if __name__ == __main__:
     model = MCRec(n_node_list, args)
     model = model.to(device)
 
-    loss_fn = 
-    valid_loss_fn = 
+    loss_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)
+    valid_loss_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=args.decay_step, gamma=args.decay)
     

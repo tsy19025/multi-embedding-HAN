@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-def Path_Embedding(nn.Module):
-    def init(self, in_dim, out_dim, kernel_size = 4):
+class Path_Embedding(nn.Module):
+    def __init__(self, in_dim, out_dim, kernel_size = 4):
         super(Path_Embedding, self).__init__()
         self.out_dim = out_dim
 
@@ -19,8 +19,8 @@ def Path_Embedding(nn.Module):
         outputs = outputs.view(path_num, self.out_dim)
         return self.maxpool1d(outputs)
 
-def AttentionLayer(nn.Module):
-    def init(self, in_dim, out_dim):
+class AttentionLayer(nn.Module):
+    def __init__(self, in_dim, out_dim):
         super(AttentionLayer, self).__init__()
         self.layer = nn.Linear(in_dim, out_dim)
         self.relu = nn.ReLU()
@@ -31,8 +31,8 @@ def AttentionLayer(nn.Module):
         output = latent * attention
         return output
         
-def MetapathAttentionLayer(nn.Module):
-    def init(self, dim, hiddens):
+class MetapathAttentionLayer(nn.Module):
+    def __init__(self, dim, hiddens):
         super(MetapathAttentionLayer, self).__init__()
 
         self.layer1 = nn.Linear(dim, hiddens)
@@ -52,8 +52,8 @@ def MetapathAttentionLayer(nn.Module):
         return sum(metapath_latent * torch.unsqueeze(attention, -1), 1)
 
 
-def MCRec(nn.Module):
-    def init(self, users, items, paths, path_nums, path_times, ):
+class MCRec(nn.Module):
+    def __init__(self, users, items, paths, path_nums, path_times, ):
         super(MCRec, self).__init__()
 
         self.users = users
@@ -70,7 +70,7 @@ def MCRec(nn.Module):
     def forward(self, user_input, item_input, path_inputs):
         # user_input: batch_size * 1(one_hot)
         # item_input: batch_size * 1(one_hot)
-        path_intpus: paths * batch_size * path_num * timestamp * length
+        # path_intpus: paths * batch_size * path_num * timestamp * length
 
         paths = path_inputs.shape[0]
         user_latent = [self.user_embedding(user) for user in user_input]
