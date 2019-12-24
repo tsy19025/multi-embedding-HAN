@@ -6,6 +6,8 @@ import pickle
 import utils
 from utils import YelpDataset
 import os
+import sys
+from sklearn.externals import joblib
 
 def parse_args():
     parse = argparse.ArgumentParser(description="Run MCRec.")
@@ -13,6 +15,8 @@ def parse_args():
     parse.add_argument('--epochs', type = int, default = 30)
     parse.add_argument('--adjs_path', type = str, default = '../yelp_dataset/adjs')
     parse.add_argument('--negetives', type = int, default = 10)
+    parse.add_argument('--batch_size', type = int, default = 60)
+    parse.add_argument('--dim', type = int, default = 64)
     # parse.add_argument()
 
     return parse.parse_args()
@@ -47,9 +51,9 @@ if __name__ == '__main__':
         path_name = ['ub_path', 'uub_path', 'ubub_path', 'ubcab_path', 'ubcib_path']
         if os.path.exists('path_data/' + path_name[0]):
             paths = []
-            for name in range(len(path_name)):
+            for name in path_name:
                 with open('path_data/' + name, 'rb') as f:
-                    paths.append(pickel.load(f))
+                    paths.append(pickle.load(f))
         else:
             adjs_path = args.adjs_path
             with open(adjs_path + '/adj_BCa', 'rb') as f:
@@ -63,10 +67,18 @@ if __name__ == '__main__':
 
             paths = utils.get_path(adj_BCa, adj_BCi, adj_UB, adj_UU)
             if not os.path.exists('path_data/'): os.mkdir('path_data/')
-            for i in range(len(paths)):
+            for i in range(5):
                 with open('path_data/' + path_name[i], 'wb') as f:
-                    pickle.dump(paths[i], f, protocol = 4)
+                    pickle.dump(paths[i], f)
+        sys.exit(0)
+        path_num = [args.sample] * 5
+        timestamps = [2, 3, 4, 4, 4]
 
+        with open(adjs_path + '/adj_UB', 'rb') as f:
+            adj_UB = pickle.load(f)
+        users, items = adj_UB.shape
+
+        '''
         num_to_ids = []
         num_to_id_names = ['num_to_userid', 'num_to_businessid', 'num_to_cityid', 'num_to_categoryid']
         for name in num_to_id_names:     
@@ -75,6 +87,7 @@ if __name__ == '__main__':
             with open(path, 'rb') as f:
                 num_to_ids.append(pickel.load(f))
         n_node_list = [len(num_to_id) for num_to_id in num_to_ids]
+        '''
 
         train_data_path = '../yelp_dataset/rates/rate_train'
         with open(train_data_path, 'rb') as f:
@@ -96,7 +109,7 @@ if __name__ == '__main__':
 
     use_cuda = torch.cuda.isavailable() and args.cuda
     device = torch.device('cuda' if use_cuda else 'cpu')
-    model = MCRec(n_node_list, args)
+    model = MCRec(users, items, paths, path_num, timestampe, args.dim)
     model = model.to(device)
 
     loss_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)

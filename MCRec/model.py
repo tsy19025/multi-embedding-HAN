@@ -53,15 +53,17 @@ class MetapathAttentionLayer(nn.Module):
 
 
 class MCRec(nn.Module):
-    def __init__(self, users, items, paths, path_nums, path_times, ):
+    def __init__(self, users, items, path_nums, timestamps, latent_dim):
         super(MCRec, self).__init__()
 
         self.users = users
         self.items = items
+        self.path_nums = path_nums
+        self.timestamps = timestamps
 
         self.user_embedding = nn.Embedding(users, latent_dim)
         self.item_embedding = nn.Embedding(items, latent_dim)
-        self.path_embedding = [Path_Embedding(timestamps[i], out_dim) for i in range(paths)]
+        self.path_embedding = [Path_Embedding(timestamps[i], latent_dim) for i in range(paths)]
 
         self.user_attention = AttentionLayer(latent_dim, latent_dim)
         self.item_attention = AttentionLayer(latent_dim, latent_dim)
