@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 class Path_Embedding(nn.Module):
     def __init__(self, in_dim, out_dim, kernel_size = 4):
         super(Path_Embedding, self).__init__()
         self.out_dim = out_dim
 
-        self.conv1d = nn.Conv1D(in_dim, out_dim, kernel_size)
+        self.conv1d = nn.Conv1d(in_dim, out_dim, kernel_size)
         self.relu = nn.ReLU()
-        self.maxpool1d = nn.MaxPool1d()
+        self.maxpool1d = nn.MaxPool1d(kernel_size)
         self.dropout = nn.Dropout(0.5)
     def forward(self, path_input, path_num, timestamp, user_latent, item_latent):
         outputs = []
@@ -63,11 +64,11 @@ class MCRec(nn.Module):
 
         self.user_embedding = nn.Embedding(users, latent_dim)
         self.item_embedding = nn.Embedding(items, latent_dim)
-        self.path_embedding = [Path_Embedding(timestamps[i], latent_dim) for i in range(paths)]
+        self.path_embedding = [Path_Embedding(timestamps[i], latent_dim) for i in range(len(path_nums))]
 
         self.user_attention = AttentionLayer(latent_dim, latent_dim)
         self.item_attention = AttentionLayer(latent_dim, latent_dim)
-        self.matapath_attention = MetapathAttention(3 * latent_dim, latent_dim)
+        self.matapath_attention = MetapathAttentionLayer(3 * latent_dim, latent_dim)
         self.prediction_layer = nn.Linear(3 * latent_dim, 1)
     def forward(self, user_input, item_input, path_inputs):
         # user_input: batch_size * 1(one_hot)
@@ -86,3 +87,13 @@ class MCRec(nn.Module):
         prediction = self.prediction_layer(output)
         return F.sigmoid(prediction)
 
+if __name__ == '__main__':
+    paths = [torch.randn([4, ])]
+    paths = torch.randn([5, ])
+    model = MCRec(10, 50, [5, 5, 5, 5, 5], [2, 3, 4, 4, 4], 64)
+
+    user_input = torch.tensor([0, 3, 4])
+    item_input = torch.tensor([2, 1, 3])
+    path_inputs = []
+    paths = [np.randint([3, 5, 2]), np.randint([3, 5, 3]), np.randint([3, 5, 4]), np.randint([3, 5, 4]), np.randint([3, 5, 4])]
+    print(model(user_input, item_input, paths))

@@ -1,5 +1,6 @@
 from model import MCRec
 import torch
+from torch.utils.data import DataLoader
 import argparse
 import utils
 import pickle
@@ -17,6 +18,7 @@ def parse_args():
     parse.add_argument('--negetives', type = int, default = 10)
     parse.add_argument('--batch_size', type = int, default = 60)
     parse.add_argument('--dim', type = int, default = 64)
+    parse.add_argument('--sample', type = int, default = 5)
     # parse.add_argument()
 
     return parse.parse_args()
@@ -70,11 +72,10 @@ if __name__ == '__main__':
             for i in range(5):
                 with open('path_data/' + path_name[i], 'wb') as f:
                     pickle.dump(paths[i], f)
-        sys.exit(0)
         path_num = [args.sample] * 5
         timestamps = [2, 3, 4, 4, 4]
 
-        with open(adjs_path + '/adj_UB', 'rb') as f:
+        with open(args.adjs_path + '/adj_UB', 'rb') as f:
             adj_UB = pickle.load(f)
         users, items = adj_UB.shape
 
@@ -92,7 +93,7 @@ if __name__ == '__main__':
         train_data_path = '../yelp_dataset/rates/rate_train'
         with open(train_data_path, 'rb') as f:
             train_data = pickle.load(f)
-        train_data_loader = DataLoader(dataset = YelpDataset(n_node_list[0], n_node_list[1], train_data, paths, args.negetive_number),
+        train_data_loader = DataLoader(dataset = YelpDataset(users, items, train_data, paths, path_num, timestamps, args.negetives),
                                        batch_size = args.batch_size,
                                        shuffle = True,
                                        num_workers = 20,
@@ -101,12 +102,12 @@ if __name__ == '__main__':
         valid_data_path = '../yelp_dataset/rates/valid_train'
         with open(valid_data_path, 'rb') as f:
             valid_data = pickle.load(f)
-        valid_data_loader = DataLoader(dataset = YelpDataset(n_node_list[0], n_node_list[1], valid_data, paths, 0),
+        valid_data_loader = DataLoader(dataset = YelpDataset(users, items, valid_data, paths, path_num, timestamps, 0),
                                        batch_size = 1,
                                        shuffle = True,
                                        num_workers = 20,
                                        pin_memory = True)
-
+    sys.exit(0)
     use_cuda = torch.cuda.isavailable() and args.cuda
     device = torch.device('cuda' if use_cuda else 'cpu')
     model = MCRec(users, items, paths, path_num, timestampe, args.dim)

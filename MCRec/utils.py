@@ -136,11 +136,13 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
             paths[4][(u, i)] = list(path[t] for t in tmp)
 
             # print(paths[0][(u, i)], paths[1][(u, i)], paths[2][(u, i)], paths[3][(u, i)], paths[4][(u, i)])
+            if i % 100 == 0: print(u, i)
+        if u % 50 == 0: print(u)
 
     return paths
 
-def YelpDataset(Dataset):
-    def __init__(self, users, items, data_path, paths, path_num, timestamps, negetive):
+class YelpDataset(Dataset):
+    def __init__(self, users, items, data_path, paths, path_num, timestamps, negetives):
         self.n_user = users
         self.n_item = items
         self.path_num = path_num
@@ -148,7 +150,7 @@ def YelpDataset(Dataset):
         self.n_negetive = negetives
 
         with open(data_path, 'rb') as f:
-            self.data = (pickle.load(f))
+            self.data = pickle.load(f)
         self.paths = paths
     def sample_negetive_item_for_user(self, user, negetive):
         items = np.nonzero(self.adj_UB[user])[0]
