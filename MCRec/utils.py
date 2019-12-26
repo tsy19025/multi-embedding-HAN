@@ -82,13 +82,11 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
     adj_BU = adj_UB.T
     users, items = adj_UB.shape
     # sample 50
-    print("n_user: ", users)
-    print("n_item: ", items)
     for u in range(users):
         for i in range(items):
             # ub:
-            if adj_UB[u][i] == 1: paths[0][(u, i)] = [u, i]
-            else: paths[0][(u, i)] = []
+            if adj_UB[u][i] == 1: paths[0][(u, i)] = [[u, i]]
+            else: paths[0][(u, i)] = [[0, 0]]
 
             # uub:
             a = np.nonzero(adj_UU[u])[0]
@@ -97,7 +95,8 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
             n = len(path)
             if n > sample: path = np.random.choice(path, size = sample, replace = False)
             elif n > 0: path = np.random.choice(path, size = sample, replace = True)
-            paths[1][(u, i)] = list([[u, user, i] for user in path])
+            paths[1][(u, i)] = np.array(list([u, user, i] for user in path))
+            if n <= 0: paths[1][(u, i)] = np.zeros([sample, 3])
 
             # ubub:
             path = []
@@ -108,8 +107,10 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
             n = len(path)
             if n > sample: tmp = np.random.choice(range(n), size = sample, replace = False)
             elif n > 0: tmp = np.random.choice(range(n), size = sample, replace = True)
-            else: tmp = []
-            paths[2][(u, i)] = list(path[t] for t in tmp)
+            else:
+                path = [[0, 0, 0, 0]] * sample
+                tmp = [0] * sample
+            paths[2][(u, i)] = np.array(list(path[t] for t in tmp))
 
             # ubcab
             path = []
@@ -120,8 +121,10 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
             n = len(path)
             if n > sample: tmp = np.random.choice(range(n), size = sample, replace = False)
             elif n > 0: tmp = np.random.choice(range(n), size = sample, replace = True)
-            else: tmp = []
-            paths[3][(u, i)] = list(path[t] for t in tmp)
+            else:
+                path = [[0, 0, 0, 0]] * sample
+                tmp = [0] * sample
+            paths[3][(u, i)] = np.array(list(path[t] for t in tmp))
 
             # ubcib
             path = []
@@ -132,39 +135,55 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
             n = len(path)
             if n > sample: tmp = np.random.choice(range(n), size = sample, replace = False)
             elif n > 0: tmp = np.random.choice(range(n), size = sample, replace = True)
-            else: tmp = []
-            paths[4][(u, i)] = list(path[t] for t in tmp)
+            else:
+                path = [[0, 0, 0, 0]] * sample
+                tmp = range(sample)
+            paths[4][(u, i)] = np.array(list(path[t] for t in tmp))
 
             # print(paths[0][(u, i)], paths[1][(u, i)], paths[2][(u, i)], paths[3][(u, i)], paths[4][(u, i)])
-            if i % 100 == 0: print(u, i)
-        if u % 50 == 0: print(u)
 
     return paths
 
 class YelpDataset(Dataset):
-    def __init__(self, users, items, data_path, paths, path_num, timestamps, negetives):
+    def __init__(self, users, items, data, paths, path_num, timestamps, adj_UB, negetives):
         self.n_user = users
         self.n_item = items
+        print('user: ', users)
+        print('item: ', items)
+        self.data = data
         self.path_num = path_num
         self.timestamps = timestamps
         self.n_negetive = negetives
+        self.adj_UB = adj_UB
 
-        with open(data_path, 'rb') as f:
-            self.data = pickle.load(f)
+        # with open(data_path, 'rb') as f:
+        #     self.data = pickle.load(f)
+        # sys.exit(0)
         self.paths = paths
+        # sys.exit(0)
     def sample_negetive_item_for_user(self, user, negetive):
-        items = np.nonzero(self.adj_UB[user])[0]
-        if len(items) > negetive: items = np.random_choice(items, size = negetive, replace = False)
-        else: items = np.random.choice(items, size = negetive, replace = True)
+        items = []
+        for t in range(negetive):
+            item = np.random.randint(0, self.n_item)
+            while self.adj_UB[user][item] == 1:
+                item = np.random.randint(0, self.n_item)
+            items.append(item)
+        # print("user: ", user, item)
         return items
 
     def __getitem__(self, index):
         user = self.data[index]['user_id']
-        items = [self.data[index]['business_id']] + sample_negetive_item_for_user(user, self.n_negetive)
+        items = [self.data[index]['business_id']] + self.sample_negetive_item_for_user(user, self.n_negetive)
         
         path_inputs = []
-        for item in items:
-            path_inputs.append([path[(user, item)] for path in self.paths])
+        for i in range(len(self.paths)):
+            path_input = []
+            for item in items:
+                feature_path = []
+                for path in self.paths[i][(user, item)]:
+                    feature_path.append(list([val] for val in path))
+                path_input.append(feature_path)
+            path_inputs.append(torch.tensor(path_input, dtype = torch.float32))
         '''
             for i in range(len(self.paths)):
                 path = self.paths[i]
@@ -182,6 +201,7 @@ class YelpDataset(Dataset):
                 paths.append(path_input)
             path_inputs.append(paths)
         '''
-        return user, items, [1] + [0] * self.n_negetive, torch.tensor(path_inputs)
+        return [user] * (self.n_negetive + 1), items, [1.0] + [0.0] * self.n_negetive, path_inputs
+    # path_inputs[0], path_inputs[1], path_inputs[2], path_inputs[3] , path_inputs[4]
     def __len__(self):
         return len(self.data)
