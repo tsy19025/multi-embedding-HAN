@@ -77,7 +77,7 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU):
     return ub_path, uub_path, ubub_path, ubcab_path, ubcib_path
 '''
 
-def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
+def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample):
     paths = [{}, {}, {}, {}, {}]
     adj_BU = adj_UB.T
     users, items = adj_UB.shape
@@ -145,16 +145,15 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample = 5):
     return paths
 
 class YelpDataset(Dataset):
-    def __init__(self, users, items, data, paths, path_num, timestamps, adj_UB, negetives):
+    def __init__(self, users, items, data, paths, path_num, timestamps, adj_UB, negetives, mode):
         self.n_user = users
         self.n_item = items
-        print('user: ', users)
-        print('item: ', items)
         self.data = data
         self.path_num = path_num
         self.timestamps = timestamps
         self.n_negetive = negetives
         self.adj_UB = adj_UB
+        self.mode = mode
 
         # with open(data_path, 'rb') as f:
         #     self.data = pickle.load(f)
@@ -172,36 +171,36 @@ class YelpDataset(Dataset):
         return items
 
     def __getitem__(self, index):
-        user = self.data[index]['user_id']
-        items = [self.data[index]['business_id']] + self.sample_negetive_item_for_user(user, self.n_negetive)
-        
-        path_inputs = []
-        for i in range(len(self.paths)):
-            path_input = []
-            for item in items:
-                feature_path = []
-                for path in self.paths[i][(user, item)]:
-                    feature_path.append(list([val] for val in path))
-                path_input.append(feature_path)
-            path_inputs.append(torch.tensor(path_input, dtype = torch.float32))
-        '''
+        if self.mode == 'train':
+            user = self.data[index]['user_id']
+            items = [self.data[index]['business_id']] + self.sample_negetive_item_for_user(user, self.n_negetive)
+            
+            path_inputs = []
             for i in range(len(self.paths)):
-                path = self.paths[i]
-                path_input = 
-                if item in path[user]:
-                    for pp in path[user][item]:
-                        tmp_path = pp.split('-')
-                        tmp_path = [int(tmp) for tmp in tmp_path]
-                        if self.timestamps[i] > len(tmp_path): tmp_path = tmp_path + [0] * (self.timestamps[i] - len(tmp_path))
-                        path_input.append(tmp_path)
-                if self.path_num[i] > len(path_input):
-                    nn = self.path_num[i] - len(path_input)
-                    for j in range(nn):
-                        path_input.append([0] * self.timestamps[i])
-                paths.append(path_input)
-            path_inputs.append(paths)
-        '''
-        return [user] * (self.n_negetive + 1), items, [1.0] + [0.0] * self.n_negetive, path_inputs
+                path_input = []
+                for item in items:
+                    feature_path = []
+                    for path in self.paths[i][(user, item)]:
+                        feature_path.append(list([val] for val in path))
+                    path_input.append(feature_path)
+                path_inputs.append(torch.tensor(path_input, dtype = torch.float32))
+            return [user] * (self.n_negetive + 1), items, [1.0] + [0.0] * self.n_negetive, path_inputs
+        else:
+            user = self.data[index]['user_id']
+            pos_n = len(self.data[index]['pos_business_id'])
+            neg_n = len(self.data[index]['neg_business_id'])
+            items = self.data[index]['pos_business_id'] + self.data[index]['neg_business_id']
+
+            path_inputs = []
+            for i in range(len(self.paths)):
+                path_input = []
+                for item in items:
+                    feature_path = []
+                    for path in self.paths[i][(user, item)]:
+                        feature_path.append(list([val] for val in path))
+                    path_input.append(feature_path)
+                path_inputs.append(torch.tensor(path_input, dtype = torch.float32))
+            return [user] * (pos_n + neg_n), items, [1.0] * pos_n + [0.0] * neg_n, path_inputs, pos_n, neg_n
     # path_inputs[0], path_inputs[1], path_inputs[2], path_inputs[3] , path_inputs[4]
     def __len__(self):
         return len(self.data)

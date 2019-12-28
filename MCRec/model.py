@@ -109,5 +109,5 @@ class MCRec(nn.Module):
         output = torch.cat([user_attention, path_attention, item_attention], -1)
         # print("output: ", output.shape)
         prediction = self.prediction_layer(output)
-        return F.sigmoid(prediction)
+        return torch.sigmoid(prediction)
 
