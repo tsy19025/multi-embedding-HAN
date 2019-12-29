@@ -4,22 +4,36 @@ import torch.nn.functional as F
 import numpy as np
 from numpy.random import randint
 import sys
+import time
+
+def one_hot(index, n):
+    tmp = torch.zeros(n, dtype = torch.int)
+    tmp[int(index)] = 1
+    return tmp
 
 class Path_Embedding(nn.Module):
-    def __init__(self, in_dim, out_dim, kernel_size = 1):
+    def __init__(self, in_dim, out_dim, n_type, device, kernel_size = 1):
         super(Path_Embedding, self).__init__()
+        self.in_dim = in_dim
         self.out_dim = out_dim
+        self.n_type = n_type
+        self.device = device
 
         self.conv1d = nn.Conv1d(in_dim, out_dim, kernel_size)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
-    def forward(self, path_input, path_num, timestamp, user_latent, item_latent, index):
+    def forward(self, path_input, path_num, timestamp, path_type, type_embedding):
         batch_size = len(path_input)
-        # path_input: batch_size * path_num * timestamp * in_dim
+        # path_input: batch_size * path_num * timestamp
         
         outputs = []
         for i in range(path_num):
-            path = self.conv1d(path_input[:, i, :, :].squeeze(1).permute([0, 2, 1]))
+            paths = path_input[:, i, :].squeeze(1)
+            path = []
+            for j in range(len(path_type)):
+                path.append(type_embedding[path_type[j]](paths[:, j]))
+            path = torch.cat(path).view(batch_size, timestamp, self.in_dim)
+            path = self.conv1d(path.permute([0, 2, 1]))
             path = F.max_pool2d(path, kernel_size = (1, path.shape[-1])).squeeze(-1)
             output = self.dropout(path)
             outputs.append(output)
@@ -61,22 +75,24 @@ class MetapathAttentionLayer(nn.Module):
         attention = F.softmax(outputs, -1)
         return sum(metapath_latent * attention.unsqueeze(-1), 1)
 
-
 class MCRec(nn.Module):
-    def __init__(self, users, items, path_nums, timestamps, feature_dim, latent_dim, device):
+    def __init__(self, n_type, path_nums, timestamps, feature_dim, latent_dim, path_type, device):
         super(MCRec, self).__init__()
 
         # print("latent_dim: ", latent_dim)
-        self.users = users
-        self.items = items
+        self.users = n_type[0]
+        self.items = n_type[1]
         self.path_nums = path_nums
         self.timestamps = timestamps
         self.device = device
         self.latent_dim = latent_dim
+        self.path_type = path_type
 
-        self.user_embedding = nn.Embedding(users, latent_dim).to(device)
-        self.item_embedding = nn.Embedding(items, latent_dim).to(device)
-        self.path_embedding = [Path_Embedding(feature_dim, latent_dim).to(device) for i in range(len(path_nums))]
+        self.type_embedding = [nn.Embedding(n_type[i], feature_dim).to(device) for i in range(len(n_type))]
+
+        self.user_embedding = nn.Embedding(self.users, latent_dim).to(device)
+        self.item_embedding = nn.Embedding(self.items, latent_dim).to(device)
+        self.path_embedding = [Path_Embedding(feature_dim, latent_dim, n_type, device).to(device) for i in range(len(path_nums))]
 
         self.user_attention = AttentionLayer(latent_dim, latent_dim).to(device)
         self.item_attention = AttentionLayer(latent_dim, latent_dim).to(device)
@@ -98,7 +114,7 @@ class MCRec(nn.Module):
         item_latent = item_latent.view(batch_size, -1).to(self.device)
         # print(item_latent.shape)
         
-        path_latent = [self.path_embedding[i](path_inputs[i], self.path_nums[i], self.timestamps[i], user_latent, item_latent, i) for i in range(paths)]
+        path_latent = [self.path_embedding[i](path_inputs[i], self.path_nums[i], self.timestamps[i], self.path_type[i], self.type_embedding) for i in range(paths)]
         path_latent = torch.cat(path_latent, -1).view(paths, batch_size, self.latent_dim).to(self.device)
         # print(path_latent.shape)
 

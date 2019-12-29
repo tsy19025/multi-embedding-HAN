@@ -145,21 +145,17 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample):
     return paths
 
 class YelpDataset(Dataset):
-    def __init__(self, users, items, data, paths, path_num, timestamps, adj_UB, negetives, mode):
-        self.n_user = users
-        self.n_item = items
+    def __init__(self, n_type, data, paths, path_num, timestamps, adj_UB, negetives, mode):
+        self.n_user = n_type[0]
+        self.n_item = n_type[1]
         self.data = data
         self.path_num = path_num
         self.timestamps = timestamps
         self.n_negetive = negetives
         self.adj_UB = adj_UB
         self.mode = mode
-
-        # with open(data_path, 'rb') as f:
-        #     self.data = pickle.load(f)
-        # sys.exit(0)
         self.paths = paths
-        # sys.exit(0)
+
     def sample_negetive_item_for_user(self, user, negetive):
         items = []
         for t in range(negetive):
@@ -181,9 +177,9 @@ class YelpDataset(Dataset):
                 for item in items:
                     feature_path = []
                     for path in self.paths[i][(user, item)]:
-                        feature_path.append(list([val] for val in path))
+                        feature_path.append(list(val for val in path))
                     path_input.append(feature_path)
-                path_inputs.append(torch.tensor(path_input, dtype = torch.float32))
+                path_inputs.append(torch.tensor(path_input, dtype = torch.int64))
             return [user] * (self.n_negetive + 1), items, [1.0] + [0.0] * self.n_negetive, path_inputs
         else:
             user = self.data[index]['user_id']
@@ -199,7 +195,7 @@ class YelpDataset(Dataset):
                     for path in self.paths[i][(user, item)]:
                         feature_path.append(list([val] for val in path))
                     path_input.append(feature_path)
-                path_inputs.append(torch.tensor(path_input, dtype = torch.float32))
+                path_inputs.append(torch.tensor(path_input, dtype = torch.int64))
             return [user] * (pos_n + neg_n), items, [1.0] * pos_n + [0.0] * neg_n, path_inputs, pos_n, neg_n
     # path_inputs[0], path_inputs[1], path_inputs[2], path_inputs[3] , path_inputs[4]
     def __len__(self):
