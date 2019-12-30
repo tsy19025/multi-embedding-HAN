@@ -1,86 +1,129 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from numpy.random import randint
+import sys
+import time
 
-def Path_Embedding(nn.Module):
-    def init(self, in_dim, out_dim, kernel_size = 4):
+def one_hot(index, n):
+    tmp = torch.zeros(n, dtype = torch.int)
+    tmp[int(index)] = 1
+    return tmp
+
+class Path_Embedding(nn.Module):
+    def __init__(self, in_dim, out_dim, n_type, device, kernel_size = 1):
         super(Path_Embedding, self).__init__()
+        self.in_dim = in_dim
         self.out_dim = out_dim
+        self.n_type = n_type
+        self.device = device
 
-        self.conv1d = nn.Conv1D(in_dim, out_dim, kernel_size)
+        self.conv1d = nn.Conv1d(in_dim, out_dim, kernel_size)
         self.relu = nn.ReLU()
-        self.maxpool1d = nn.MaxPool1d()
         self.dropout = nn.Dropout(0.5)
-    def forward(self, path_input, path_num, timestamp, user_latent, item_latent):
+    def forward(self, path_input, path_num, timestamp, path_type, type_embedding):
+        batch_size = len(path_input)
+        # path_input: batch_size * path_num * timestamp
+        
         outputs = []
         for i in range(path_num):
-            path = path_input[:, i, :, :]
-            output = self.dropout(self.maxpool1d(self.conv1d(path)))
-            outputs = torch.concat([outputs, output])
-        outputs = outputs.view(path_num, self.out_dim)
-        return self.maxpool1d(outputs)
+            paths = path_input[:, i, :].squeeze(1)
+            path = []
+            for j in range(len(path_type)):
+                path.append(type_embedding[path_type[j]](paths[:, j]))
+            path = torch.cat(path).view(batch_size, timestamp, self.in_dim)
+            path = self.conv1d(path.permute([0, 2, 1]))
+            path = F.max_pool2d(path, kernel_size = (1, path.shape[-1])).squeeze(-1)
+            output = self.dropout(path)
+            outputs.append(output)
+        outputs = torch.cat(outputs, -1).view(batch_size, path_num, self.out_dim).permute([0, 2, 1])
+        outputs = F.max_pool2d(outputs, kernel_size = (1, outputs.shape[-1])).squeeze(-1)
+        return outputs
 
-def AttentionLayer(nn.Module):
-    def init(self, in_dim, out_dim):
+class AttentionLayer(nn.Module):
+    def __init__(self, in_dim, out_dim):
         super(AttentionLayer, self).__init__()
-        self.layer = nn.Linear(in_dim, out_dim)
+        self.layer = nn.Linear(in_dim * 2, out_dim)
         self.relu = nn.ReLU()
     def forward(self, latent, path_output):
-        inputs = torch.concat([latent, path_output])
+        inputs = torch.cat([latent, path_output], -1)
+        # print(inputs.shape)
         output = self.relu(self.layer(inputs))
-        attention = F.softmax(output)
+        attention = F.softmax(output, -1)
         output = latent * attention
         return output
         
-def MetapathAttentionLayer(nn.Module):
-    def init(self, dim, hiddens):
+class MetapathAttentionLayer(nn.Module):
+    def __init__(self, dim, hiddens):
         super(MetapathAttentionLayer, self).__init__()
-
+        self.dim = dim
         self.layer1 = nn.Linear(dim, hiddens)
         self.layer2 = nn.Linear(hiddens, 1)
         self.relu = nn.ReLU()
     def forward(self, user_latent, item_latent, metapath_latent):
-        latent_size = user_latent.shape[1]
-        _, path_num, path_latent_size = metapath_latent.shape
+        # metapath_latent: batch_size * paths * dim
+        paths, batch_size, dim = metapath_latent.shape
 
         outputs = []
-        for i in range(path_num):
-            metapath = metapath_latent[:, i, :]
-            inputs = torch.concat([user_latent, item_latent, metapath])
+        for metapath in metapath_latent:
+            inputs = torch.cat([user_latent, item_latent, metapath], dim = -1)
+            # print(inputs.shape)
             output = self.relu(self.layer2(self.relu(self.layer1(inputs))))
-            outputs = torch.concat([outputs, output])
-        attention = F.softmax(outputs)
-        return sum(metapath_latent * torch.unsqueeze(attention, -1), 1)
+            outputs.append(output.squeeze(-1))
+        outputs = torch.cat(outputs, 0).view(paths, batch_size)
+        attention = F.softmax(outputs, -1)
+        return sum(metapath_latent * attention.unsqueeze(-1), 1)
 
-
-def MCRec(nn.Module):
-    def init(self, users, items, paths, path_nums, path_times, ):
+class MCRec(nn.Module):
+    def __init__(self, n_type, path_nums, timestamps, feature_dim, latent_dim, path_type, device):
         super(MCRec, self).__init__()
 
-        self.users = users
-        self.items = items
+        # print("latent_dim: ", latent_dim)
+        self.users = n_type[0]
+        self.items = n_type[1]
+        self.path_nums = path_nums
+        self.timestamps = timestamps
+        self.device = device
+        self.latent_dim = latent_dim
+        self.path_type = path_type
 
-        self.user_embedding = nn.Embedding(users, latent_dim)
-        self.item_embedding = nn.Embedding(items, latent_dim)
-        self.path_embedding = [Path_Embedding(timestamps[i], out_dim) for i in range(paths)]
+        self.type_embedding = [nn.Embedding(n_type[i], feature_dim).to(device) for i in range(len(n_type))]
 
-        self.user_attention = AttentionLayer(latent_dim, latent_dim)
-        self.item_attention = AttentionLayer(latent_dim, latent_dim)
-        self.matapath_attention = MetapathAttention(3 * latent_dim, latent_dim)
-        self.prediction_layer = nn.Linear(3 * latent_dim, 1)
+        self.user_embedding = nn.Embedding(self.users, latent_dim).to(device)
+        self.item_embedding = nn.Embedding(self.items, latent_dim).to(device)
+        self.path_embedding = [Path_Embedding(feature_dim, latent_dim, n_type, device).to(device) for i in range(len(path_nums))]
+
+        self.user_attention = AttentionLayer(latent_dim, latent_dim).to(device)
+        self.item_attention = AttentionLayer(latent_dim, latent_dim).to(device)
+        self.metapath_attention = MetapathAttentionLayer(3 * latent_dim, latent_dim).to(device)
+        self.prediction_layer = nn.Linear(3 * latent_dim, 1).to(device)
     def forward(self, user_input, item_input, path_inputs):
         # user_input: batch_size * 1(one_hot)
         # item_input: batch_size * 1(one_hot)
-        # path_intpus: batch_size * paths * path_num * timestamp * length
+        # path_intpus: paths * batch_size * path_num * timestamp * length
 
-        paths = path_inputs.shape[0]
-        user_latent = [self.user_embedding(user) for user in user_input]
-        item_latent = [self.item_embedding(item) for item in item_input]
-        path_latent = [self.path_embedding(path_inputs[:, i, :, :], self.path_num[i], self.timestamps[i], user_latent, item_latent) for i in range(paths)]
+        paths = len(path_inputs)
+        batch_size = user_input.shape[0]
+
+        user_latent = torch.cat([self.user_embedding(user) for user in user_input], -1)
+        user_latent = user_latent.view(batch_size, -1).to(self.device)
+        # print(user_latent.shape)
+
+        item_latent = torch.cat([self.item_embedding(item) for item in item_input], -1)
+        item_latent = item_latent.view(batch_size, -1).to(self.device)
+        # print(item_latent.shape)
+        
+        path_latent = [self.path_embedding[i](path_inputs[i], self.path_nums[i], self.timestamps[i], self.path_type[i], self.type_embedding) for i in range(paths)]
+        path_latent = torch.cat(path_latent, -1).view(paths, batch_size, self.latent_dim).to(self.device)
+        # print(path_latent.shape)
+
         path_attention = self.metapath_attention(user_latent, item_latent, path_latent)
         user_attention = self.user_attention(user_latent, path_attention)
         item_attention = self.item_attention(item_latent, path_attention)
 
-        output = torch.cat([user_attention, path_attention, item_attention])
+        output = torch.cat([user_attention, path_attention, item_attention], -1)
+        # print("output: ", output.shape)
         prediction = self.prediction_layer(output)
-        return F.sigmoid(prediction)
+        return torch.sigmoid(prediction)
 
