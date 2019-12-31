@@ -24,6 +24,21 @@ class Path_Embedding(nn.Module):
         self.dropout = nn.Dropout(0.5)
     def forward(self, path_input, path_num, timestamp, path_type, type_embedding):
         batch_size = len(path_input)
+        '''
+        tmp_input = []
+        for paths in path_input:
+            tmp2 = []
+            for path in paths:
+                tmp = []
+                for i in range(len(path_type)):
+                    # onehot = one_hot(path[i], self.n_type[path_type[i]]).to(self.device)
+                    a = int(path[i][0])
+                    a = torch.tensor(a).to(self.device)
+                    tmp.append(type_embedding[path_type[i]](a))
+                tmp2.append(torch.cat(tmp, -1).view(timestamp, self.in_dim))
+            tmp_input.append(torch.cat(tmp2, -1).view(path_num, timestamp, self.in_dim))
+        path_input = torch.cat(tmp_input, -1).view(batch_size, path_num, timestamp, self.in_dim)
+        '''
         # path_input: batch_size * path_num * timestamp
         
         outputs = []

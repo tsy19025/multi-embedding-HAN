@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 import numpy as np
 import random
 import sys
+import time
 
 '''
 def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU):
@@ -77,34 +78,61 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU):
     return ub_path, uub_path, ubub_path, ubcab_path, ubcib_path
 '''
 
-def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample):
+def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample, sample_a_size = 50, sample_b_size = 50):
     paths = [{}, {}, {}, {}, {}]
     adj_BU = adj_UB.T
     users, items = adj_UB.shape
+    print(users, items)
     # sample 50
+    item_bu = []
+    item_bca = []
+    item_bci = []
+    for i in range(items):
+        bu = np.nonzero(adj_BU[i])[0]
+        bca = np.nonzero(adj_BCa[i])[0]
+        bci = np.nonzero(adj_BCi[i])[0]
+
+        if len(bu) > sample_b_size: bu = np.random.choice(bu, size = sample_b_size, replace = False)
+        if len(bca) > sample_b_size: bca = np.random.choice(bca, size = sample_b_size, replace = False)
+        if len(bci) > sample_b_size: bci = np.random.choice(bci, size = sample_b_size, replace = False)
+
+        item_bu.append(bu)
+        item_bca.append(bca)
+        item_bci.append(bci)
+
+    begin_ticks = time.time()
     for u in range(users):
+        print(u)
+        end_ticks = time.time()
+        print(end_ticks - begin_ticks)
+        user_uu = np.nonzero(adj_UU[u])[0]
+        user_ub = np.nonzero(adj_UB[u])[0]
+
+        if len(user_ub) > sample_a_size: user_ub = np.random.choice(user_ub, size = sample_a_size, replace = False)
         for i in range(items):
+            # print("i:", i)
             # ub:
             if adj_UB[u][i] == 1: paths[0][(u, i)] = [[u, i]]
             else: paths[0][(u, i)] = [[0, 0]]
 
             # uub:
-            a = np.nonzero(adj_UU[u])[0]
-            b = np.nonzero(adj_BU[i])[0]
-            path = [user for user in a if user in b]
+            path = [user for user in user_uu if user in item_bu[i]]
             n = len(path)
+            # print(n)
+            # print(i, " : ", n)
             if n > sample: path = np.random.choice(path, size = sample, replace = False)
             elif n > 0: path = np.random.choice(path, size = sample, replace = True)
             paths[1][(u, i)] = np.array(list([u, user, i] for user in path))
             if n <= 0: paths[1][(u, i)] = np.zeros([sample, 3])
 
             # ubub:
+            # print("ubub")
             path = []
-            a = np.nonzero(adj_UB[u])[0]
-            for item in a:
-                for user in b:
+            for item in user_ub:
+                for user in item_bu[i]:
                     if adj_UB[user][item] == 1: path.append([u, item, user, i])
             n = len(path)
+            # print(n)
             if n > sample: tmp = np.random.choice(range(n), size = sample, replace = False)
             elif n > 0: tmp = np.random.choice(range(n), size = sample, replace = True)
             else:
@@ -113,12 +141,13 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample):
             paths[2][(u, i)] = np.array(list(path[t] for t in tmp))
 
             # ubcab
+            # print("ubcab")
             path = []
-            b = np.nonzero(adj_BCa[i])[0]
-            for item in a:
-                for ca in b:
+            for item in user_ub:
+                for ca in item_bca[i]:
                     if adj_BCa[item][ca] == 1: path.append([u, item, ca, i])
             n = len(path)
+            # print(n)
             if n > sample: tmp = np.random.choice(range(n), size = sample, replace = False)
             elif n > 0: tmp = np.random.choice(range(n), size = sample, replace = True)
             else:
@@ -127,12 +156,13 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample):
             paths[3][(u, i)] = np.array(list(path[t] for t in tmp))
 
             # ubcib
+            # print("ubcib")
             path = []
-            b = np.nonzero(adj_BCi[i])[0]
-            for item in a:
-                for ci in b:
+            for item in user_ub:
+                for ci in item_bci[i]:
                     if adj_BCi[item][ci] == 1: path.append([u, item, ci, i])
             n = len(path)
+            # print(n)
             if n > sample: tmp = np.random.choice(range(n), size = sample, replace = False)
             elif n > 0: tmp = np.random.choice(range(n), size = sample, replace = True)
             else:
@@ -141,7 +171,6 @@ def get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, sample):
             paths[4][(u, i)] = np.array(list(path[t] for t in tmp))
 
             # print(paths[0][(u, i)], paths[1][(u, i)], paths[2][(u, i)], paths[3][(u, i)], paths[4][(u, i)])
-
     return paths
 
 class YelpDataset(Dataset):

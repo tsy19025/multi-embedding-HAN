@@ -9,7 +9,7 @@ from metrics import *
 import argparse
 import utils
 import pickle
-import utils as utils
+import utils
 from utils import YelpDataset
 import os
 import sys
@@ -19,8 +19,9 @@ import time
 def parse_args():
     parse = argparse.ArgumentParser(description="Run MCRec.")
     parse.add_argument('--dataset', default = 'yelp', help = 'Choose a dataset.')
-    parse.add_argument('--epochs', type = int, default = 1)
-    parse.add_argument('--adjs_path', type = str, default = '../yelp_dataset/adjs')
+    parse.add_argument('--epochs', type = int, default = 100)
+    parse.add_argument('--adjs_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/adjs')
+    parse.add_argument('--data_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset')
     parse.add_argument('--negetives', type = int, default = 50)
     parse.add_argument('--batch_size', type = int, default = 60)
     parse.add_argument('--dim', type = int, default = 64)
@@ -31,6 +32,7 @@ def parse_args():
     parse.add_argument('--decay', type = float, default = 0.98, help = 'learning rate decay rate')
     parse.add_argument('--feature_dim', type = int, default = 64)
     parse.add_argument('--save', type = str, default = 'model/')
+    parse.add_argument('--mode', type = str, default = 'train')
     # parse.add_argument()
 
     return parse.parse_args()
@@ -92,17 +94,16 @@ def eval(model, eval_data_loader, device, K):
                 path_input.append(path.view(batch_size * items_size, path_num, timestamps, length).to(device))
             # path_input: paths * (batch_size * nege + 1) * path_num * timestamps * length
             output = model(user_input, item_input, path_input).squeeze(-1)
-
-            gt_items = []
-            begin = 0
             pred_items, indexs = torch.topk(output, K)
+            gt_items = torch.nonzero(label)[:, 0].tolist()
             indexs = indexs.tolist()
-            for index in indexs:
-                if index < pos: gt_items.append(index)
+            # indexs = indexs.tolist()
+            # for index in indexs:
+            #    if index < pos: gt_items.append(index)
             
-            p_at_k = getP(pred_items, gt_items)
-            r_at_k = getR(pred_items, gt_items)
-            ndcg_at_k = getNDCG(pred_items, gt_items)
+            p_at_k = getP(indexs, gt_items)
+            r_at_k = getR(indexs, gt_items)
+            ndcg_at_k = getNDCG(indexs, gt_items)
 
             eval_p.append(p_at_k)
             eval_r.append(r_at_k)
@@ -115,18 +116,19 @@ def eval(model, eval_data_loader, device, K):
 
 def valid(model, valid_data_loader, loss_fn):
     mean_p, mean_r, mean_ndcg = eval(model, valid_data_loader, device, 20)
-    print('Valid:\tprecision@20:%f, recall@20:%f, ndcg@20:%f' % (mean_p, mean_r, mean_ndcg))
+    print('Valid:\tprecision@20:', mean_p, ', recall@20:', mean_r, ', ndcg@20', mean_ndcg)
     return mean_p, mean_r, mean_ndcg
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
+    print("Begin")
     args = parse_args()
     if args.dataset == 'yelp':
         path_name = ['ub_path', 'uub_path', 'ubub_path', 'ubcab_path', 'ubcib_path']
-        if os.path.exists('path_data/' + path_name[0]):
+        if os.path.exists('path_data_all/' + path_name[0]):
             paths = []
             for name in path_name:
-                with open('path_data/' + name, 'rb') as f:
+                with open('path_data_all/' + name, 'rb') as f:
                     paths.append(pickle.load(f))
         else:
             adjs_path = args.adjs_path
@@ -140,10 +142,11 @@ if __name__ == '__main__':
                 adj_UU = pickle.load(f)
 
             paths = utils.get_path(adj_BCa, adj_BCi, adj_UB, adj_UU, args.sample)
-            if not os.path.exists('path_data'): os.mkdir('path_data')
+            if not os.path.exists('path_data_all'): os.mkdir('path_data_all')
             for i in range(5):
-                with open('path_data/' + path_name[i], 'wb') as f:
+                with open('path_data_all/' + path_name[i], 'wb') as f:
                     pickle.dump(paths[i], f)
+        print("get path")
         path_num = [1] + [args.sample] * 4
         timestamps = [2, 3, 4, 4, 4]
         path_type = [[0, 1], [0, 0, 1], [0, 1, 0, 1], [0, 1, 3, 1], [0, 1, 2, 1]]
@@ -156,38 +159,40 @@ if __name__ == '__main__':
         num_to_id_paths = []
         num_to_id_names = ['num_to_userid', 'num_to_businessid', 'num_to_cityid', 'num_to_categoryid']
         for name in num_to_id_names:     
-            num_to_id_paths.append('../yelp_dataset/adjs/' + name)
+            num_to_id_paths.append(args.adjs_path + name)
         for path in num_to_id_paths:
             with open(path, 'rb') as f:
                 num_to_ids.append(pickle.load(f))
         n_type = [len(num_to_id) for num_to_id in num_to_ids]
+        
+        if args.mode == 'train':
+            train_data_path = args.data_path + '/rates/rate_path'
+            with open(train_data_path, 'rb') as f:
+                train_data = pickle.load(f)
+            train_data_loader = DataLoader(dataset = YelpDataset(n_type, train_data, paths, path_num, timestamps, adj_UB, args.negetives, 'train'),
+                                           batch_size = args.batch_size,
+                                           shuffle = True,
+                                           num_workers = 20,
+                                           pin_memory = True)
 
-        train_data_path = '../yelp_dataset/rates/rate_train'
-        with open(train_data_path, 'rb') as f:
-            train_data = pickle.load(f)
-        train_data_loader = DataLoader(dataset = YelpDataset(n_type, train_data, paths, path_num, timestamps, adj_UB, args.negetives, 'train'),
-                                       batch_size = args.batch_size,
-                                       shuffle = True,
-                                       num_workers = 20,
-                                       pin_memory = True)
+            valid_data_path = args.data_path + '/rates/valid_with_neg'
+            with open(valid_data_path, 'rb') as f:
+                valid_data = pickle.load(f)
+            valid_data_loader = DataLoader(dataset = YelpDataset(n_type, valid_data, paths, path_num, timestamps, adj_UB, 0, 'valid'),
+                                           batch_size = 1,
+                                           shuffle = True,
+                                           num_workers = 20,
+                                           pin_memory = True)
 
-        valid_data_path = '../yelp_dataset/rates/valid_with_neg'
-        with open(valid_data_path, 'rb') as f:
-            valid_data = pickle.load(f)
-        valid_data_loader = DataLoader(dataset = YelpDataset(n_type, valid_data, paths, path_num, timestamps, adj_UB, 0, 'valid'),
-                                       batch_size = 1,
-                                       shuffle = True,
-                                       num_workers = 20,
-                                       pin_memory = True)
-
-        test_data_path = '../yelp_dataset/rates/test_with_neg'
+        print("read test data")
+        test_data_path = args.data_path + '/rates/test_with_neg'
         with open(test_data_path, 'rb') as f:
             test_data = pickle.load(f)
-        test_data_loader = DataLoader(dataset = YelpDataset(n_type, valid_data, paths, path_num, timestamps, adj_UB, 0, 'test'),
-                                      batch_size = 1, 
-                                      shuffle = True,
-                                      num_workers = 20,
-                                      pin_memory = True)
+            test_data_loader = DataLoader(dataset = YelpDataset(n_type, test_data, paths, path_num, timestamps, adj_UB, 0, 'test'),
+                                          batch_size = 1, 
+                                          shuffle = True,
+                                          num_workers = 20,
+                                          pin_memory = True)
 
     use_cuda = torch.cuda.is_available() and args.cuda
     device = torch.device('cuda' if use_cuda else 'cpu')
@@ -199,25 +204,26 @@ if __name__ == '__main__':
     valid_loss_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
     scheduler = lr_scheduler.StepLR(optimizer, step_size = args.decay_step, gamma = args.decay)
-    
-    best_loss = 100000
-    before_loss = 0
-    for epoch in range(args.epochs):
-        mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
-        _, _, valid_loss = valid(model, valid_data_loader, valid_loss_fn)
-        print("epoch: ", epoch, "   loss: ", mean_loss)
-        if valid_loss < best_loss:
-            best_loss = valid_loss
-            # with open(args.save + '', 'wb') as f:
-            state = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
-            torch.save(state, '/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1.pth')
-            print('Model save for lower valid loss %f' % best_loss)
-        if abs(mean_loss - before_loss) < 0.0001:
-            print("stop training at epoch: ", epoch)
-            break
-
+    if args.mode == 'train':
+        best_loss = 100000
+        before_loss = 0
+        for epoch in range(args.epochs):
+            mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
+            _, _, valid_loss = valid(model, valid_data_loader, valid_loss_fn)
+            print("epoch: ", epoch, "   loss: ", mean_loss)
+            if valid_loss < best_loss:
+                best_loss = valid_loss
+                # with open(args.save + '', 'wb') as f:
+                state = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
+                torch.save(state, '/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1_all.pth')
+                print('Model save for lower valid loss %f' % best_loss)
+            if abs(mean_loss - before_loss) < 0.0001:
+                print("stop training at epoch: ", epoch)
+                break
+            before_loss = mean_loss
     # test
-    model.load_state_dict(torch.load('/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1.pth'))
+    state = torch.load('/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1_all.pth')
+    model.load_state_dict(state['net'])
     model.to(device)
 
     test_loss = valid(model, test_data_loader, valid_loss_fn)
