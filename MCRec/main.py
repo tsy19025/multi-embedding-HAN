@@ -20,37 +20,42 @@ def parse_args():
     parse = argparse.ArgumentParser(description="Run MCRec.")
     parse.add_argument('--dataset', default = 'yelp', help = 'Choose a dataset.')
     parse.add_argument('--epochs', type = int, default = 100)
-    parse.add_argument('--adjs_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/adjs/')
     parse.add_argument('--data_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
-    parse.add_argument('--negatives', type = int, default = 50)
-    parse.add_argument('--batch_size', type = int, default = 60)
+    parse.add_argument('--negatives', type = int, default = 1)
+    parse.add_argument('--batch_size', type = int, default = 5)
     parse.add_argument('--dim', type = int, default = 64)
-    parse.add_argument('--sample', type = int, default = 50)
+    parse.add_argument('--sample', type = int, default = 20)
     parse.add_argument('--cuda', type = bool, default = True)
-    parse.add_argument('--lr', type = float, default = 0.001)
+    parse.add_argument('--lr', type = float, default = 0.0001)
     parse.add_argument('--decay_step', type = int, default = 1)
     parse.add_argument('--decay', type = float, default = 0.98, help = 'learning rate decay rate')
     parse.add_argument('--feature_dim', type = int, default = 64)
     parse.add_argument('--save', type = str, default = 'model/')
     parse.add_argument('--K', type = int, default = 20)
-    parse.add_argument('--mode', type = str, default = 'test')
+    parse.add_argument('--mode', type = str, default = 'train')
     # parse.add_argument()
 
     return parse.parse_args()
 
 def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
     print("train ", epoch)
-    sum_loss = 0
-    cnt = 0
     model.train()
     train_loss = []
 
     begin_ticks = time.time()
     for step, data in enumerate(train_data_loader):
-        user_input, item_input, label, paths = data
-        user_input = torch.cat(user_input, 0).to(device)
-        item_input = torch.cat(item_input, 0).to(device)
-        label = torch.cat(label, 0).double().to(device)
+        user_input_tmp, item_input_tmp, label_tmp, paths = data
+        user_input = []
+        item_input = []
+        label = []
+        for i in range(args.batch_size):
+            for j in range(args.negatives + 1):
+                user_input.append(user_input_tmp[j][i])
+                item_input.append(item_input_tmp[j][i])
+                label.append(label_tmp[j][i])
+        user_input = torch.tensor(user_input).to(device)
+        item_input = torch.tensor(item_input).to(device)
+        label = torch.DoubleTensor(label).to(device)
         # paths: paths * batch_size * negatives + 1 * path_num * timestamps
         path_input = []
         for path in paths:
@@ -58,16 +63,18 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
             path_input.append(path.view(batch_size * items_size, path_num, timestamps).to(device))
         # path_input: paths * (batch_size * nega + 1) * path_num * timestamps
 
-        output = model(user_input, item_input, path_input).squeeze(-1)
-        loss = loss_fn(output.double(), label)
-        # print(loss.shape)
+        output = model(user_input, item_input, path_input).squeeze(-1).double()
+        print(output)
+        print(label)
+        loss = loss_fn(output, label)
+        print(loss)
+        print("----------------------------------------------------------------")
         loss = torch.mean(loss)
-        sum_loss += loss.data
-        cnt = cnt + 1
+        #print(loss)
+        #print("----------------------------------------------------------------")
         train_loss.append(loss.item())
 
         loss.backward()
-
         optimizer.step()
     end_ticks = time.time()
     print("cost time: ", end_ticks - begin_ticks)
@@ -89,7 +96,6 @@ def eval(model, eval_data_loader, device, K):
             label = torch.cat(label, 0).double().to(device)
             # print(user_input)
             # print(item_input)
-            # print(pos, neg)
 
             # paths: paths * batch_size * negatives + 1 * path_num * timestamps * length
             path_input = []
@@ -100,7 +106,7 @@ def eval(model, eval_data_loader, device, K):
             # path_input: paths * (batch_size * nega + 1) * path_num * timestamps * length
             output = model(user_input, item_input, path_input).squeeze(-1)
             # print("output")
-            # print(output)
+            print(output)
             pred_items, indexs = torch.topk(output, K)
             gt_items = torch.nonzero(label)[:, 0].tolist()
             indexs = indexs.tolist()
@@ -111,10 +117,10 @@ def eval(model, eval_data_loader, device, K):
             p_at_k = getP(indexs, gt_items)
             r_at_k = getR(indexs, gt_items)
             ndcg_at_k = getNDCG(indexs, gt_items)
-            # print(indexs)
-            # print(gt_items)
-            # print(p_at_k, r_at_k, ndcg_at_k)
-            # print("--------------------------------------------------")
+            print(indexs)
+            print(gt_items)
+            print(p_at_k, r_at_k, ndcg_at_k)
+            print("--------------------------------------------------")
 
             eval_p.append(p_at_k)
             eval_r.append(r_at_k)
@@ -136,7 +142,7 @@ if __name__ == '__main__':
     args = parse_args()
     if args.dataset == 'yelp':
         path_name = ['ub_path', 'uub_path', 'ubub_path', 'ubcab_path', 'ubcib_path']
-        adjs_path = args.adjs_path
+        adjs_path = args.data_path + 'adjs/'
         with open(adjs_path + 'adj_BCa', 'rb') as f: adj_BCa = pickle.load(f)
         with open(adjs_path + 'adj_BCi', 'rb') as f: adj_BCi = pickle.load(f)
         with open(adjs_path + 'adj_UB', 'rb') as f: adj_UB = pickle.load(f)
@@ -150,7 +156,7 @@ if __name__ == '__main__':
         num_to_id_paths = []
         num_to_id_names = ['num_to_userid', 'num_to_businessid', 'num_to_cityid', 'num_to_categoryid']
         for name in num_to_id_names:     
-            num_to_id_paths.append(args.adjs_path + name)
+            num_to_id_paths.append(adjs_path + name)
         for path in num_to_id_paths:
             with open(path, 'rb') as f:
                 num_to_ids.append(pickle.load(f))
@@ -192,6 +198,7 @@ if __name__ == '__main__':
     print("MCRec have {} paramerters in total".format(sum(x.numel() for x in model.parameters())))
 
     loss_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)
+    # loss_fn = nn.CrossEntropyLoss()
     valid_loss_fn = nn.BCEWithLogitsLoss(reduction='none').to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
     scheduler = lr_scheduler.StepLR(optimizer, step_size = args.decay_step, gamma = args.decay)
@@ -206,14 +213,14 @@ if __name__ == '__main__':
                 best_loss = valid_loss
                 # with open(args.save + '', 'wb') as f:
                 state = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
-                torch.save(state, '/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1_all.pth')
+                torch.save(state, '/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1.pth')
                 print('Model save for lower valid loss %f' % best_loss)
             if abs(mean_loss - before_loss) < 0.0001:
                 print("stop training at epoch: ", epoch)
                 break
             before_loss = mean_loss
     # test
-    state = torch.load('/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1_all.pth')
+    state = torch.load('/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1.pth')
     model.load_state_dict(state['net'])
     model.to(device)
 

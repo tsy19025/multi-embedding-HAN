@@ -162,6 +162,7 @@ class YelpDataset(Dataset):
         if idx == 1:
             path = [user for user in self.user_uu[u] if user in self.item_bu[i]]
             n = len(path)
+            # print("idx: ", idx, " n: ", n)
             if n == 0: return np.zeros([self.sample, 3])
             if n > self.sample: path = np.random.choice(path, size = self.sample, replace = False)
             else: path = np.random.choice(path, size = self.sample)
@@ -172,6 +173,7 @@ class YelpDataset(Dataset):
                     if self.adj_UB[user][item] == 1:
                         path.append([u, item, user, i])
             n = len(path)
+            # print("idx: ", idx, " n: ", n)
             if n == 0: return np.zeros([self.sample, 4])
             if n > self.sample: tmp = np.random.choice(range(n), size = self.sample, replace = False)
             else: tmp = np.random.choice(range(n), size = self.sample)
@@ -182,6 +184,7 @@ class YelpDataset(Dataset):
                     if self.adj_BCa[item][ca] == 1:
                         path.append([u, item, ca, i])
             n = len(path)
+            # print("idx: ", idx, " n: ", n)
             if n == 0: return np.zeros([self.sample, 4])
             if n > self.sample: tmp = np.random.choice(range(n), size = self.sample, replace = False)
             else: tmp = np.random.choice(range(n), size = self.sample)
@@ -192,6 +195,7 @@ class YelpDataset(Dataset):
                     if self.adj_BCi[item][ci] == 1:
                         path.append([u, item, ci, i])
             n = len(path)
+            # print("idx:", idx, " n: ", n)
             if n == 0: return np.zeros([self.sample, 4])
             if n > self.sample: tmp = np.random.choice(range(n), size = self.sample, replace = False)
             else: tmp = np.random.choice(range(n), size = self.sample)

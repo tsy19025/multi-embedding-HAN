@@ -123,10 +123,13 @@ class MCRec(nn.Module):
 
         user_latent = torch.cat([self.user_embedding(user) for user in user_input], -1)
         user_latent = user_latent.view(batch_size, -1).to(self.device)
+        # print("user_latent: ", user_latent)
+
         # print(user_latent.shape)
 
         item_latent = torch.cat([self.item_embedding(item) for item in item_input], -1)
         item_latent = item_latent.view(batch_size, -1).to(self.device)
+        # print("item_latent: ", item_latent)
         # print(item_latent.shape)
         
         path_latent = [self.path_embedding[i](path_inputs[i], self.path_nums[i], self.timestamps[i], self.path_type[i], self.type_embedding) for i in range(paths)]
