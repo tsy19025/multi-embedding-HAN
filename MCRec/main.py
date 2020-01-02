@@ -30,9 +30,10 @@ def parse_args():
     parse.add_argument('--decay_step', type = int, default = 1)
     parse.add_argument('--decay', type = float, default = 0.98, help = 'learning rate decay rate')
     parse.add_argument('--feature_dim', type = int, default = 64)
-    parse.add_argument('--save', type = str, default = 'model/')
+    parse.add_argument('--save', type = str, default = 'model/modelpara1.pth')
     parse.add_argument('--K', type = int, default = 20)
     parse.add_argument('--mode', type = str, default = 'train')
+    parse.add_argument('--load', type = bool, default = False)
     # parse.add_argument()
 
     return parse.parse_args()
@@ -48,7 +49,9 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         user_input = []
         item_input = []
         label = []
-        for i in range(args.batch_size):
+
+        batch_size = len(user_input_tmp[0])
+        for i in range(batch_size):
             for j in range(args.negatives + 1):
                 user_input.append(user_input_tmp[j][i])
                 item_input.append(item_input_tmp[j][i])
@@ -198,29 +201,32 @@ if __name__ == '__main__':
     valid_loss_fn = nn.BCELoss(reduction='none').to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
     scheduler = lr_scheduler.StepLR(optimizer, step_size = args.decay_step, gamma = args.decay)
+    if args.load == True:
+        state = torch.load(args.save)
+        model.load_state_dict(state['net'])
+        model.to(device)
     if args.mode == 'train':
-        best_loss = 100000
+        best_ndcg = 0
         before_loss = 0
         for epoch in range(args.epochs):
             mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
-            _, _, valid_loss = valid(model, valid_data_loader, valid_loss_fn)
+            _, _, valid_ndcg = valid(model, valid_data_loader, valid_loss_fn)
             print("epoch: ", epoch, "   loss: ", mean_loss)
-            if valid_loss < best_loss:
-                best_loss = valid_loss
+            if valid_ndcg > best_ndcg:
+                best_ndcg = valid_ndcg
                 # with open(args.save + '', 'wb') as f:
                 state = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
-                torch.save(state, '/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1.pth')
-                print('Model save for lower valid loss %f' % best_loss)
+                torch.save(state, args.save)
+                print('Model save for better valid ndcg: ', best_ndcg)
             if abs(mean_loss - before_loss) < 0.0001:
-                print("stop training at epoch: ", epoch)
+                print("stop training at epoch ", epoch)
                 break
-            sys.exit()
             before_loss = mean_loss
     # test
-    state = torch.load('/home1/tsy/multi-embedding-HAN/tmp/model/modelpara1.pth')
+    state = torch.load(args.save)
     model.load_state_dict(state['net'])
     model.to(device)
 
-    test_loss = valid(model, test_data_loader, valid_loss_fn)
-    print("test: ", test_loss)
+    test = valid(model, test_data_loader, valid_loss_fn)
+    print("test: ", test)
 
