@@ -112,6 +112,8 @@ class YelpDataset(Dataset):
         self.n_negative = negatives
         self.adj_BCa = adj_BCa
         self.adj_BCi = adj_BCi
+        _, self.n_ca = adj_BCa.shape
+        _, self.n_ci = adj_BCi.shape
         self.adj_UU = adj_UU
         self.adj_UB = adj_UB
         self.sample = sample
@@ -158,12 +160,12 @@ class YelpDataset(Dataset):
         path = []
         if idx == 0:
             if self.adj_UB[u][i] == 1: return [[u, i]]
-            return [[0, 0]]
+            return [[self.n_user, self.n_item]]
         if idx == 1:
             path = [user for user in self.user_uu[u] if user in self.item_bu[i]]
             n = len(path)
             # print("idx: ", idx, " n: ", n)
-            if n == 0: return np.zeros([self.sample, 3])
+            if n == 0: return [[self.n_user, self.n_user, self.n_item]] * self.sample
             if n > self.sample: path = np.random.choice(path, size = self.sample, replace = False)
             else: path = np.random.choice(path, size = self.sample)
             return [[u, user, i] for user in path]
@@ -174,7 +176,7 @@ class YelpDataset(Dataset):
                         path.append([u, item, user, i])
             n = len(path)
             # print("idx: ", idx, " n: ", n)
-            if n == 0: return np.zeros([self.sample, 4])
+            if n == 0: return [[self.n_user, self.n_item, self.n_user, self.n_item]] * self.sample
             if n > self.sample: tmp = np.random.choice(range(n), size = self.sample, replace = False)
             else: tmp = np.random.choice(range(n), size = self.sample)
             return [path[t] for t in tmp]
@@ -185,7 +187,7 @@ class YelpDataset(Dataset):
                         path.append([u, item, ca, i])
             n = len(path)
             # print("idx: ", idx, " n: ", n)
-            if n == 0: return np.zeros([self.sample, 4])
+            if n == 0: return [[self.n_user, self.n_item, self.n_ca, self.n_item]] * self.sample
             if n > self.sample: tmp = np.random.choice(range(n), size = self.sample, replace = False)
             else: tmp = np.random.choice(range(n), size = self.sample)
             return [path[t] for t in tmp]
@@ -196,7 +198,7 @@ class YelpDataset(Dataset):
                         path.append([u, item, ci, i])
             n = len(path)
             # print("idx:", idx, " n: ", n)
-            if n == 0: return np.zeros([self.sample, 4])
+            if n == 0: return [[self.n_user, self.n_item, self.n_ci, self.n_item]] * self.sample
             if n > self.sample: tmp = np.random.choice(range(n), size = self.sample, replace = False)
             else: tmp = np.random.choice(range(n), size = self.sample)
             return [path[t] for t in tmp]
@@ -206,6 +208,7 @@ class YelpDataset(Dataset):
             user = self.data[index]['user_id']
             items = [self.data[index]['business_id']] + self.sample_negative_item_for_user(user, self.n_negative)
             
+            '''
             path_inputs = []
             for i in range(n_path):
                 path_input = []
@@ -216,13 +219,15 @@ class YelpDataset(Dataset):
                         feature_path.append(list(val for val in path))
                     path_input.append(feature_path)
                 path_inputs.append(torch.tensor(path_input, dtype = torch.int64))
-            return [user] * (self.n_negative + 1), items, [1.0] + [0.0] * self.n_negative, path_inputs
+            '''
+            return [user] * (self.n_negative + 1), items, [1.0] + [0.0] * self.n_negative#, path_inputs
         else:
             user = self.data[index]['user_id']
             pos_n = len(self.data[index]['pos_business_id'])
             neg_n = len(self.data[index]['neg_business_id'])
             items = self.data[index]['pos_business_id'] + self.data[index]['neg_business_id']
 
+            '''
             path_inputs = []
             for i in range(n_path):
                 path_input = []
@@ -233,7 +238,8 @@ class YelpDataset(Dataset):
                         feature_path.append(list([val] for val in path))
                     path_input.append(feature_path)
                 path_inputs.append(torch.tensor(path_input, dtype = torch.int64))
-            return [user] * (pos_n + neg_n), items, [1.0] * pos_n + [0.0] * neg_n, path_inputs, pos_n, neg_n
+            '''
+            return [user] * (pos_n + neg_n), items, [1.0] * pos_n + [0.0] * neg_n, pos_n, neg_n
     # path_inputs[0], path_inputs[1], path_inputs[2], path_inputs[3] , path_inputs[4]
     def __len__(self):
         return len(self.data)
