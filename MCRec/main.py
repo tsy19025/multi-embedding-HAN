@@ -1,4 +1,4 @@
-from modeltmp import MCRec
+from model import MCRec
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -19,22 +19,21 @@ import time
 def parse_args():
     parse = argparse.ArgumentParser(description="Run MCRec.")
     parse.add_argument('--dataset', default = 'yelp', help = 'Choose a dataset.')
-    parse.add_argument('--epochs', type = int, default = 100)
-    # parse.add_argument('--data_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
-    parse.add_argument('--data_path', type = str, default = '../../MCRec/')
-    parse.add_argument('--negatives', type = int, default = 2)
-    parse.add_argument('--batch_size', type = int, default = 60)
-    parse.add_argument('--dim', type = int, default = 128)
-    parse.add_argument('--sample', type = int, default = 50)
-    parse.add_argument('--cuda', type = bool, default = False)
+    parse.add_argument('--epochs', type = int, default = 100000)
+    parse.add_argument('--data_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
+    # parse.add_argument('--data_path', type = str, default = '../tmpdataset/')
+    parse.add_argument('--negatives', type = int, default = 20)
+    parse.add_argument('--batch_size', type = int, default = 32)
+    parse.add_argument('--dim', type = int, default = 64)
+    parse.add_argument('--sample', type = int, default = 64)
+    parse.add_argument('--cuda', type = bool, default = True)
     parse.add_argument('--lr', type = float, default = 0.001)
-    parse.add_argument('--decay_step', type = int, default = 30)
-    parse.add_argument('--decay', type = float, default = 0.9, help = 'learning rate decay rate')
-    parse.add_argument('--feature_dim', type = int, default = 128)
-    parse.add_argument('--save', type = str, default = 'model/modelpara1.pth')
+    parse.add_argument('--decay_step', type = int, default = 5)
+    parse.add_argument('--decay', type = float, default = 0.95, help = 'learning rate decay rate')
+    parse.add_argument('--save', type = str, default = 'model/bigdata_modelpara1_dropout0.5.pth')
     parse.add_argument('--K', type = int, default = 20)
     parse.add_argument('--mode', type = str, default = 'train')
-    parse.add_argument('--load', type = bool, default = False)
+    parse.add_argument('--load', type = bool, default = True)
     # parse.add_argument()
 
     return parse.parse_args()
@@ -46,7 +45,7 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
 
     begin_ticks = time.time()
     for step, data in enumerate(train_data_loader):
-        user_input_tmp, item_input_tmp, label_tmp = data
+        user_input_tmp, item_input_tmp, label_tmp, paths = data
         user_input = []
         item_input = []
         label = []
@@ -59,11 +58,10 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
                 label.append(label_tmp[j][i])
         user_input = torch.tensor(user_input).to(device)
         item_input = torch.tensor(item_input).to(device)
-        label = torch.DoubleTensor(label).to(device)
+        label = torch.DoubleTensor(label).to(device).view(-1, 1 + args.negatives)
         # print(user_input)
         # print(item_input)
         # paths: paths * batch_size * negatives + 1 * path_num * timestamps
-        '''
         path_input = []
         for path in paths:
             batch_size, items_size, path_num, timestamps = path.shape
@@ -75,12 +73,10 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         # print(path_input[3])
         # print(path_input[4])
         # sys.exit(0)
-        '''
 
-        output = model(user_input, item_input).squeeze(-1).double()
-
+        output = model(user_input, item_input, path_input).squeeze(-1).double().view(-1, 1 + args.negatives)
         print(output)
-        # print(label)
+
         ##  sys.exit(0)
         loss = loss_fn(output, label).view(batch_size, -1)
         # print(loss.shape)
@@ -90,7 +86,12 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         loss = torch.sum(loss, -1)
         # print(loss.shape)
         # print(loss)
+        l1_regularization, l2_regularization = torch.tensor([0],dtype =torch.float64), torch.tensor([0],dtype=torch.float64)
+        for param in model.parameters():
+            l1_regularization += torch.norm(param, 1)
+            l2_regularization += torch.norm(param, 2)
         loss = torch.mean(loss)
+        # print(l2_regularization)
         # print(loss.shape)
         # print(loss)
         # sys.exit(0)
@@ -103,6 +104,12 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         optimizer.step()
     end_ticks = time.time()
     print("cost time: ", end_ticks - begin_ticks)
+    l1_regularization, l2_regularization = torch.tensor([0],dtype =torch.float32), torch.tensor([0],dtype=torch.float32)
+    for param in model.parameters():
+        l1_regularization += torch.norm(param, 1)
+        l2_regularization += torch.norm(param, 2)
+    print("l1:", l1_regularization)
+    print("l2:", l2_regularization)
     return np.mean(train_loss)
 
 def eval(model, eval_data_loader, device, K, loss_fn):
@@ -112,8 +119,8 @@ def eval(model, eval_data_loader, device, K, loss_fn):
         print("name:", name)
         print("grad_requirs:", parms.requires_grad)
         print("grad_value:", parms.grad)
-    print('eval')
     '''
+    print("eval")
     model.eval()
 
     eval_p = []
@@ -123,25 +130,23 @@ def eval(model, eval_data_loader, device, K, loss_fn):
 
     with torch.no_grad():
         for step, batch_data in enumerate(eval_data_loader):
-            user_input, item_input, label, pos, neg = batch_data
+            user_input, item_input, paths, label, pos, neg = batch_data
             user_input = torch.cat(user_input, 0).to(device)
             item_input = torch.cat(item_input, 0).to(device)
-            label = torch.cat(label, 0).float()
+            label = torch.cat(label, 0).float().to(device)
 
             # paths: paths * batch_size * negatives + 1 * path_num * timestamps * length
-            '''
             path_input = []
             for path in paths:
                 batch_size, items_size, path_num, timestamps, length = path.shape
                 path_input.append(path.view(batch_size * items_size, path_num, timestamps, length).to(device))
             # print(path_input)
             # path_input: paths * (batch_size * nega + 1) * path_num * timestamps * length
-            '''
-            output = model(user_input, item_input).squeeze(-1)
+
+            output = model(user_input, item_input, path_input).squeeze(-1)
             loss = loss_fn(output, label)
             eval_loss.append(torch.mean(loss).item())
             print(output)
-            print(label)
             # print("output")
             pred_items, indexs = torch.topk(output, K)
             gt_items = torch.nonzero(label)[:, 0].tolist()
@@ -154,8 +159,7 @@ def eval(model, eval_data_loader, device, K, loss_fn):
             r_at_k = getR(indexs, gt_items)
             ndcg_at_k = getNDCG(indexs, gt_items)
             print(indexs)
-            print(gt_items)
-            print(p_at_k, r_at_k, ndcg_at_k)
+            print(pos, p_at_k, r_at_k, ndcg_at_k)
             print("--------------------------------------------------")
 
             eval_p.append(p_at_k)
@@ -231,23 +235,36 @@ if __name__ == '__main__':
     print("n_type:", n_type)
     use_cuda = torch.cuda.is_available() and args.cuda
     device = torch.device('cuda' if use_cuda else 'cpu')
-    model = MCRec(n_type, path_num, timestamps, args.feature_dim, args.dim, path_type, device)
+    model = MCRec(n_type, path_num, timestamps, args.dim, path_type, device)
     model = model.to(device)
     for m in model.modules():
-        if isinstance(m, (nn.Conv2d, nn.Linear, nn.Embedding)):
+        # print(m)
+        # print("-------------------------------------------")
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
             nn.init.xavier_uniform_(m.weight)
+        # elif isinstance(m, (nn.Embedding)):
+        #    nn.init.kaiming_uniform_(m.weight)
     print("MCRec have {} paramerters in total".format(sum(x.numel() for x in model.parameters())))
+    """
+    for name, parms in model.named_parameters():
+        print("name:")
+        print(name)
+        print(parms)
+        print("---------------------------------------------------------------------")
+    sys.exit(0)
+    """
 
-    loss_fn = nn.BCELoss(reduction='none').to(device)
+
+    loss_fn = nn.BCELoss(weight = torch.tensor([1] + args.negatives * [1.1 / args.negatives]).double(), reduction='none').to(device)
     valid_loss_fn = nn.BCELoss(reduction='none').to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr = args.lr, weight_decay=0.000001)
     scheduler = lr_scheduler.StepLR(optimizer, step_size = args.decay_step, gamma = args.decay)
     if args.load == True:
         state = torch.load(args.save)
         model.load_state_dict(state['net'])
         model.to(device)
     if args.mode == 'train':
-        best_ndcg = 0
+        best_ndcg = 1000
         before_loss = 0
         for epoch in range(args.epochs):
             mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
@@ -260,7 +277,7 @@ if __name__ == '__main__':
                 state = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
                 torch.save(state, args.save)
                 print('Model save for better valid ndcg: ', best_ndcg)
-            if abs(mean_loss - before_loss) < 0.0001:
+            if abs(mean_loss - before_loss) < 0.00001:
                 print("stop training at epoch ", epoch)
                 break
             before_loss = mean_loss
