@@ -13,30 +13,35 @@ import utils
 from utils import YelpDataset
 import os
 import sys
-from sklearn.externals import joblib
+# from sklearn.externals import joblib
 import time
 
 def parse_args():
     parse = argparse.ArgumentParser(description="Run MCRec.")
     parse.add_argument('--dataset', default = 'yelp', help = 'Choose a dataset.')
     parse.add_argument('--epochs', type = int, default = 100000)
-    parse.add_argument('--data_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
-    # parse.add_argument('--data_path', type = str, default = '../tmpdataset/')
-    parse.add_argument('--negatives', type = int, default = 20)
-    parse.add_argument('--batch_size', type = int, default = 32)
-    parse.add_argument('--dim', type = int, default = 64)
+    # parse.add_argument('--data_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
+    parse.add_argument('--data_path', type = str, default = '../tmpdataset/')
+    parse.add_argument('--negatives', type = int, default = 4)
+    parse.add_argument('--batch_size', type = int, default = 64)
+    parse.add_argument('--dim', type = int, default = 100)
     parse.add_argument('--sample', type = int, default = 64)
     parse.add_argument('--cuda', type = bool, default = True)
     parse.add_argument('--lr', type = float, default = 0.001)
     parse.add_argument('--decay_step', type = int, default = 5)
+    parse.add_argument('--log_step', type=int, default=1e2)
     parse.add_argument('--decay', type = float, default = 0.95, help = 'learning rate decay rate')
-    parse.add_argument('--save', type = str, default = 'model/bigdata_modelpara1_dropout0.5.pth')
+    parse.add_argument('--save', type = str, default = 'model/tmpdata_modelpara1_dropout0.5.pth')
     parse.add_argument('--K', type = int, default = 20)
     parse.add_argument('--mode', type = str, default = 'train')
-    parse.add_argument('--load', type = bool, default = True)
-    # parse.add_argument()
+    parse.add_argument('--load', type = bool, default = False)
+    parse.add_argument('--patience', type = int, default = 10)
 
     return parse.parse_args()
+
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
 
 def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
     print("train ", epoch)
@@ -75,7 +80,7 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         # sys.exit(0)
 
         output = model(user_input, item_input, path_input).squeeze(-1).double().view(-1, 1 + args.negatives)
-        print(output)
+        # print(output)
 
         ##  sys.exit(0)
         loss = loss_fn(output, label).view(batch_size, -1)
@@ -83,13 +88,9 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         # print(loss)
         # print(loss)
         # print("----------------------------------------------------------------")
-        loss = torch.sum(loss, -1)
+        loss = torch.sum(loss, 1)
         # print(loss.shape)
         # print(loss)
-        l1_regularization, l2_regularization = torch.tensor([0],dtype =torch.float64), torch.tensor([0],dtype=torch.float64)
-        for param in model.parameters():
-            l1_regularization += torch.norm(param, 1)
-            l2_regularization += torch.norm(param, 2)
         loss = torch.mean(loss)
         # print(l2_regularization)
         # print(loss.shape)
@@ -102,6 +103,9 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        if (step % args.log_step == 0) and step > 0:
+            print('Train epoch: {}[{}/{} ({:.0f}%)]\tLr:{:.6f}, Loss: {:.6f}, AvgL: {:.6f}'.format(epoch, step, len(train_data_loader),
+                                                    100. * step / len(train_data_loader), get_lr(optimizer), loss.item(), np.mean(train_loss)))
     end_ticks = time.time()
     print("cost time: ", end_ticks - begin_ticks)
     l1_regularization, l2_regularization = torch.tensor([0],dtype =torch.float32), torch.tensor([0],dtype=torch.float32)
@@ -146,7 +150,7 @@ def eval(model, eval_data_loader, device, K, loss_fn):
             output = model(user_input, item_input, path_input).squeeze(-1)
             loss = loss_fn(output, label)
             eval_loss.append(torch.mean(loss).item())
-            print(output)
+            # print(output)
             # print("output")
             pred_items, indexs = torch.topk(output, K)
             gt_items = torch.nonzero(label)[:, 0].tolist()
@@ -158,9 +162,9 @@ def eval(model, eval_data_loader, device, K, loss_fn):
             p_at_k = getP(indexs, gt_items)
             r_at_k = getR(indexs, gt_items)
             ndcg_at_k = getNDCG(indexs, gt_items)
-            print(indexs)
-            print(pos, p_at_k, r_at_k, ndcg_at_k)
-            print("--------------------------------------------------")
+            # print(indexs)
+            # print(pos, p_at_k, r_at_k, ndcg_at_k)
+            # print("--------------------------------------------------")
 
             eval_p.append(p_at_k)
             eval_r.append(r_at_k)
@@ -170,6 +174,7 @@ def eval(model, eval_data_loader, device, K, loss_fn):
     mean_r = np.mean(eval_r)
     mean_ndcg = np.mean(eval_ndcg)
     print("eval loss:", np.mean(eval_loss))
+    print(mean_p, mean_r, mean_ndcg)
     return mean_p, mean_r, mean_ndcg
 
 def valid(model, valid_data_loader, loss_fn):
@@ -222,7 +227,7 @@ if __name__ == '__main__':
                                            num_workers = 20,
                                            pin_memory = True)
 
-        print("read test data")
+        # print("read test data")
         test_data_path = args.data_path + 'rates/test_with_neg'
         with open(test_data_path, 'rb') as f:
             test_data = pickle.load(f)
@@ -259,28 +264,30 @@ if __name__ == '__main__':
     valid_loss_fn = nn.BCELoss(reduction='none').to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr, weight_decay=0.000001)
     scheduler = lr_scheduler.StepLR(optimizer, step_size = args.decay_step, gamma = args.decay)
+
+    best_ndcg = 0
+    best_epoch = -1
     if args.load == True:
         state = torch.load(args.save)
         model.load_state_dict(state['net'])
+        best_ndcg = state['ndcg']
+        best_epoch = state['epoch']
         model.to(device)
     if args.mode == 'train':
-        best_ndcg = 1000
-        before_loss = 0
-        for epoch in range(args.epochs):
+        for epoch in range(best_poch + 1, args.epochs):
             mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
+            print("epoch:", epoch, "    loss:", mean_loss)
             _, _, valid_ndcg = valid(model, valid_data_loader, valid_loss_fn)
-            print("epoch: ", epoch, "   loss: ", mean_loss)
             # sys.exit(0)
             if valid_ndcg > best_ndcg:
                 best_ndcg = valid_ndcg
-                # with open(args.save + '', 'wb') as f:
-                state = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
+                best_epoch = epoch
+                state = {'net': model.state_dict(), 'optimizer': optimizer.state_dict(), 'ndcg': best_ndcg, 'epoch': epoch}
                 torch.save(state, args.save)
                 print('Model save for better valid ndcg: ', best_ndcg)
-            if abs(mean_loss - before_loss) < 0.00001:
+            if epoch - best_epoch >= args.patience:
                 print("stop training at epoch ", epoch)
                 break
-            before_loss = mean_loss
     # test
     state = torch.load(args.save)
     model.load_state_dict(state['net'])
