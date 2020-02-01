@@ -27,7 +27,7 @@ def parse_args():
     parse.add_argument('--dim', type = int, default = 100)
     parse.add_argument('--sample', type = int, default = 64)
     parse.add_argument('--cuda', type = bool, default = True)
-    parse.add_argument('--lr', type = float, default = 0.001)
+    parse.add_argument('--lr', type = float, default = 0.0001)
     parse.add_argument('--decay_step', type = int, default = 5)
     parse.add_argument('--log_step', type=int, default=1e2)
     parse.add_argument('--decay', type = float, default = 0.95, help = 'learning rate decay rate')
@@ -49,7 +49,10 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
     train_loss = []
 
     begin_ticks = time.time()
+    tot = 0
     for step, data in enumerate(train_data_loader):
+        tot = tot + 1
+        if tot >= 1000: break
         user_input_tmp, item_input_tmp, label_tmp, paths = data
         user_input = []
         item_input = []
@@ -80,6 +83,7 @@ def train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch):
         # sys.exit(0)
 
         output = model(user_input, item_input, path_input).squeeze(-1).double().view(-1, 1 + args.negatives)
+        # output = model(user_input, item_input).squeeze(-1).double().view(-1, 1 + args.negatives)
         # print(output)
 
         ##  sys.exit(0)
@@ -260,7 +264,8 @@ if __name__ == '__main__':
     """
 
 
-    loss_fn = nn.BCELoss(weight = torch.tensor([1] + args.negatives * [1.1 / args.negatives]).double(), reduction='none').to(device)
+    # loss_fn = nn.BCELoss(weight = torch.tensor([1] + args.negatives * [1.0 / args.negatives]).double(), reduction='none').to(device)
+    loss_fn = nn.BCELoss(reduction = 'none').to(device)
     valid_loss_fn = nn.BCELoss(reduction='none').to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr, weight_decay=0.000001)
     scheduler = lr_scheduler.StepLR(optimizer, step_size = args.decay_step, gamma = args.decay)
@@ -274,10 +279,12 @@ if __name__ == '__main__':
         best_epoch = state['epoch']
         model.to(device)
     if args.mode == 'train':
+        __, _, _ = valid(model, valid_data_loader, valid_loss_fn)
         for epoch in range(best_epoch + 1, args.epochs):
             mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
             print("epoch:", epoch, "    loss:", mean_loss)
             _, _, valid_ndcg = valid(model, valid_data_loader, valid_loss_fn)
+            scheduler.step()
             # sys.exit(0)
             if valid_ndcg > best_ndcg:
                 best_ndcg = valid_ndcg
