@@ -82,7 +82,7 @@ class MetapathAttentionLayer(nn.Module):
         return sum(metapath_latent * attention.unsqueeze(-1), 1)
 
 class MCRec(nn.Module):
-    def __init__(self, n_type, path_nums, timestamps, feature_dim, latent_dim, path_type, device):
+    def __init__(self, n_type, path_nums, timestamps, latent_dim, path_type, device):
         super(MCRec, self).__init__()
 
         # print("latent_dim: ", latent_dim)
@@ -105,7 +105,16 @@ class MCRec(nn.Module):
         # self.user_attention = AttentionLayer(latent_dim, latent_dim).to(device)
         # self.item_attention = AttentionLayer(latent_dim, latent_dim).to(device)
         # self.metapath_attention = MetapathAttentionLayer(3 * latent_dim, latent_dim).to(device)
-        self.prediction_layer = nn.Linear(2 * latent_dim, 1).to(device)
+        self.prediction_layer = nn.Linear(latent_dim*2//(2**3), 1).to(device)
+
+        MLP_modules = []
+        for i in range(3):
+            input_size = latent_dim*2 // (2 ** i)
+            MLP_modules.append(nn.Dropout(0.0))
+            MLP_modules.append(nn.Linear(input_size, input_size // 2))
+            MLP_modules.append(nn.ReLU())
+        self.MLP_layers = nn.Sequential(*MLP_modules)
+
     def forward(self, user_input, item_input):
         # user_input: batch_size * 1(one_hot)
         # item_input: batch_size * 1(one_hot)
@@ -136,6 +145,7 @@ class MCRec(nn.Module):
         output = torch.cat([user_latent, item_latent], -1)
         # print(output)
         # print("output: ", output.shape)
-        prediction = self.prediction_layer(output)
+        prediction = self.MLP_layers(output)
+        prediction = self.prediction_layer(prediction)
         return torch.sigmoid(prediction)
 

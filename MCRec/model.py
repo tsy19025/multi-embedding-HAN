@@ -7,39 +7,46 @@ import sys
 import time
 
 class Path_Embedding(nn.Module):
-    def __init__(self, in_dim, out_dim, n_type, device, kernel_size = 2):
+    def __init__(self, latent_dim, embedding_list, device, dataset, kernel_size = 2):
         super(Path_Embedding, self).__init__()
-        self.in_dim = in_dim
-        self.out_dim = out_dim
-        self.n_type = n_type
+        # self.in_dim = in_dim
+        # self.out_dim = out_dim
+        self.latent_dim = latent_dim
+        self.embedding_list = embedding_list
+        # self.n_type = n_type_type
 
-        self.user_embedding = nn.Embedding(n_type[0], in_dim).to(device)
-        self.item_embedding = nn.Embedding(n_type[1], in_dim).to(device)
-        self.ca_embedding = nn.Embedding(n_type[2], in_dim).to(device)
-        self.ci_embedding = nn.Embedding(n_type[3], in_dim).to(device)
+        # self.user_embedding = nn.Embedding(n_type[0], in_dim).to(device)
+        # self.item_embedding = nn.Embedding(n_type[1], in_dim).to(device)
+        # self.ca_embedding = nn.Embedding(n_type[2], in_dim).to(device)
+        # self.ci_embedding = nn.Embedding(n_type[3], in_dim).to(device)
         self.device = device
+        self.dataset = dataset
 
-        self.conv1d = nn.Conv1d(in_dim, out_dim, kernel_size)
+        self.conv1d = nn.Conv1d(latent_dim, latent_dim, kernel_size)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.0)
     def forward(self, path_input, path_num, timestamp, path_type):
         batch_size = len(path_input)
         # path_input: batch_size * path_num * timestamp
-        
+
         outputs = []
         for i in range(path_num):
             paths = path_input[:, i, :].squeeze(1)
             path = []
             for j in range(len(path_type)):
-                if path_type[j] == 0:
-                    path.append(self.user_embedding(paths[:, j]))
-                elif path_type[j] == 1:
-                    path.append(self.item_embedding(paths[:, j]))
-                elif path_type[j] == 2:
-                    path.append(self.ca_embedding(paths[:, j]))
-                elif path_type[j] == 3:
-                    path.append(self.ci_embedding(paths[:, j]))
-            path = torch.cat(path).view(batch_size, timestamp, self.in_dim)
+                path.append(self.embedding_list[path_type[j]](paths[:, j]))
+                # if self.dataset == 'yelp':
+                #     if path_type[j] == 0:
+                #         path.append(self.user_embedding(paths[:, j]))
+                #     elif path_type[j] == 1:
+                #         path.append(self.item_embedding(paths[:, j]))
+                #     elif path_type[j] == 2:
+                #         path.append(self.ca_embedding(paths[:, j]))
+                #     elif path_type[j] == 3:
+                #         path.append(self.ci_embedding(paths[:, j]))
+                # else:
+                #     print('dataset wrong')
+            path = torch.cat(path).view(batch_size, timestamp, self.latent_dim)
             path = self.conv1d(path.permute([0, 2, 1]))
             path = F.max_pool2d(path, kernel_size = (1, path.shape[-1])).squeeze(-1)
             output = self.dropout(path)
@@ -49,9 +56,9 @@ class Path_Embedding(nn.Module):
         return outputs
 
 class AttentionLayer(nn.Module):
-    def __init__(self, in_dim, out_dim):
+    def __init__(self, latent_dim):
         super(AttentionLayer, self).__init__()
-        self.layer = nn.Linear(in_dim * 2, out_dim)
+        self.layer = nn.Linear(latent_dim * 2, latent_dim)
         self.relu = nn.ReLU()
     def forward(self, latent, path_output):
         inputs = torch.cat([latent, path_output], -1)
@@ -61,13 +68,13 @@ class AttentionLayer(nn.Module):
         return output
         
 class MetapathAttentionLayer(nn.Module):
-    def __init__(self, dim, hiddens):
+    def __init__(self, latent_dim):
         super(MetapathAttentionLayer, self).__init__()
-        self.dim = dim
-        self.layer1 = nn.Linear(dim, hiddens)
-        self.layer2 = nn.Linear(hiddens, 1)
+        self.latent_dim = latent_dim
+        self.layer1 = nn.Linear(3*latent_dim, latent_dim)
+        self.layer2 = nn.Linear(latent_dim, 1)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.0)
     def forward(self, user_latent, item_latent, metapath_latent):
         # metapath_latent: batch_size * paths * dim
         paths, batch_size, dim = metapath_latent.shape
@@ -100,30 +107,31 @@ class MetapathAttentionLayer(nn.Module):
         # return sum(metapath_latent * attention.unsqueeze(-1), 1)
 
 class MCRec(nn.Module):
-    def __init__(self, n_type, path_nums, timestamps, latent_dim, path_type, device):
+    def __init__(self, n_type, path_nums, timestamps, latent_dim, path_type, dataset, device):
         super(MCRec, self).__init__()
 
         # print("latent_dim: ", latent_dim)
-        self.users = n_type[0]
-        self.items = n_type[1]
+        # self.users = n_type[0]
+        # self.items = n_type[1]
         self.path_nums = path_nums
         self.timestamps = timestamps
         self.device = device
         self.latent_dim = latent_dim
         self.path_type = path_type
-
-        self.user_embedding = nn.Embedding(self.users, latent_dim).to(device)
-        self.item_embedding = nn.Embedding(self.items, latent_dim).to(device)
-        self.path_embedding = Path_Embedding(latent_dim, latent_dim, n_type, device).to(device)
-
-        self.user_attention = AttentionLayer(latent_dim, latent_dim).to(device)
-        self.item_attention = AttentionLayer(latent_dim, latent_dim).to(device)
-        self.metapath_attention = MetapathAttentionLayer(3 * latent_dim, latent_dim).to(device)
-
-        dim = [3 * latent_dim, 2 * latent_dim, latent_dim, 32,16,8]
+        if dataset == 'yelp':
+            self.user_embedding = nn.Embedding(n_type[0], latent_dim).to(device)
+            self.item_embedding = nn.Embedding(n_type[1], latent_dim).to(device)
+            self.city_embedding = nn.Embedding(n_type[2], latent_dim).to(device)
+            self.category_embedding = nn.Embedding(n_type[3], latent_dim).to(device)
+            self.embedding_list = [self.user_embedding, self.item_embedding, self.city_embedding, self.category_embedding]
+        self.path_embedding = Path_Embedding(latent_dim, n_type, device, dataset).to(device)
+        self.user_attention = AttentionLayer(latent_dim).to(device)
+        self.item_attention = AttentionLayer(latent_dim).to(device)
+        self.metapath_attention = MetapathAttentionLayer(latent_dim).to(device)
+        dim = [3*latent_dim, 2*latent_dim, latent_dim]
         self.mlp = [nn.Linear(dim[i], dim[i + 1]).to(device) for i in range(len(dim) - 1)]
-        self.dropout = nn.Dropout(0.5)
-        self.prediction_layer = nn.Linear(8, 1).to(device)
+        self.dropout = nn.Dropout(0.0)
+        self.prediction_layer = nn.Linear(latent_dim, 1).to(device)
     def forward(self, user_input, item_input, path_inputs):
         # user_input: batch_size * 1(one_hot)
         # item_input: batch_size * 1(one_hot)
