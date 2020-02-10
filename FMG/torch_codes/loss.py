@@ -25,3 +25,24 @@ class MFLoss(nn.Module):
         return 0.5 * norm(adj_predicted - adj, p='fro') + \
             self.reg_user * norm(user_mat, p='fro') + \
             self.reg_item * norm(item_mat, p='fro')
+
+class CrossEntropyLossForFM(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input, target):
+        r"""
+        We first put input into a sigmoid
+        Parameters
+        ----------
+        input: torch.Tensor with size [bsz].
+            each element is an FM output.
+
+        target: torch.Tensor with size [bsz].
+            each element is a label of one-class
+
+        Return
+        ------
+        loss: torch.Tensor
+        """
+        pass
