@@ -48,8 +48,8 @@ class MatrixFactorizer(nn.Module):
         r"""
         export the embeddings to files
         """
-        user_factors = self.user_factors.detach()
-        item_factors = self.item_factors.detach()
+        user_factors = self.user_factors.detach().cpu()
+        item_factors = self.item_factors.detach().cpu()
         user_file = filepath + metapath + '_user' + '.pickle'
         item_file = filepath + metapath + '_item' + '.pickle'
         write_pickle(user_file, user_factors)

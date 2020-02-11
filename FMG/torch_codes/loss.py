@@ -3,6 +3,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn, norm
 
+from utils import *
+
 
 class MFLoss(nn.Module):
     def __init__(self, reg_user, reg_item):

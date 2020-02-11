@@ -1,0 +1,23 @@
+time cost: 0.000001
+loading data...
+time cost: 0.769674
+loading features
+time cost: 2.022271
+making datasets...
+n_users: 13262 n_items: 13902
+time cost: 11.135226
+start training FM...
+epoch 0, loss = 0.513262, lr = 0.005000, time cost = 1605.950243
+evaluation: loss: 0.559176, precision@20: 0.270743, recall@20: 0.804480, NDCG: 0.618897
+saving current model...
+epoch 1, loss = 0.513262, lr = 0.005000, time cost = 1591.136946
+epoch 2, loss = 0.513262, lr = 0.005000, time cost = 1598.026834
+epoch 3, loss = 0.513262, lr = 0.005000, time cost = 1595.613507
+epoch 4, loss = 0.513262, lr = 0.005000, time cost = 1593.303304
+epoch 5, loss = 0.513262, lr = 0.005000, time cost = 1594.297219
+epoch 6, loss = 0.513262, lr = 0.005000, time cost = 1598.749063
+epoch 7, loss = 0.513262, lr = 0.005000, time cost = 1596.073079
+epoch 8, loss = 0.513262, lr = 0.005000, time cost = 1595.171175
+epoch 9, loss = 0.513262, lr = 0.005000, time cost = 1596.458104
+time cost: 16000.041130
+evaluation: loss: 0.540622, precision@20: 0.252703, recall@20: 0.825680, NDCG: 0.621158
