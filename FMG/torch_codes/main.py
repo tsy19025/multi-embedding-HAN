@@ -25,19 +25,19 @@ def parse_args():
     # parse.add_argument('--dim', type=int, default=100)
     # parse.add_argument('--sample', type=int, default=64)
     parse.add_argument('--cuda', type=bool, default=True)
-    parse.add_argument('--lr', type=float, default=0.0001)
+    # parse.add_argument('--lr', type=float, default=0.0001)
     # parse.add_argument('--decay_step', type=int, default=5)
     # parse.add_argument('--log_step', type=int, default=1e2)
     # parse.add_argument('--decay', type=float, default=0.95, help='learning rate decay rate')
     # parse.add_argument('--save', type=str, default='model/bigdata_modelpara1_dropout0.5.pth')
-    parse.add_argument('--K', type=int, default=20)
+    parse.add_argument('--fm-factor', type=int, default=20)
     parse.add_argument('--mode', type=str, default='train')
     # parse.add_argument('--load', type=bool, default=False)
     # parse.add_argument('--patience', type=int, default=10)
-    parse.add_argument('--cluster', type=bool, default=False, help="Run the program on cluster or PC")
-    parse.add_argument('--toy', type=bool, default=False, help="Toy dataset for debugging")
-    parse.add_argument('--MF-train', type=bool, default=False, help="Run Matrix Factorization training")
-    parse.add_argument('--factor', type=int, default=20, help="n_factor for MF")
+    parse.add_argument('--cluster', action='store_true', default=False, help="Run the program on cluster or PC")
+    parse.add_argument('--toy', action='store_true', default=False, help="Toy dataset for debugging")
+    parse.add_argument('--mf-train', action='store_true', default=False, help="Run Matrix Factorization training")
+    parse.add_argument('--mf-factor', type=int, default=20, help="n_factor for MF")
 
     return parse.parse_args()
 
@@ -154,11 +154,11 @@ def train_FM(model, train_data, valid_data, epochs=500, lr=1e-4, criterion=None,
         print("epoch %d, loss = %f, lr = %f, time cost = %f" % (epoch, loss, lr, gettime() - t0))
 
         # Validation
-        if epoch % 10 == 0:
+        if epoch % 2 == 0:
             loss, prec, recall, ndcg = eval(valid_data, FM, criterion, 20, cuda=cuda)
             if loss > best_loss:
                 i += 1
-                if i > 3:
+                if i > 2:
                     break
             elif loss < best_loss:
                 best_loss = loss
@@ -228,17 +228,18 @@ if __name__ == "__main__":
 
     # train MF
     metapaths = ['UB', 'UBUB', 'UUB', 'UBCaB', 'UBCiB']
+    # metapaths = ['UBUB', 'UUB', 'UBCaB', 'UBCiB']
     # metapaths = ['UB', 'UBUB', 'UUB', 'UBCaB', 'UBCiB', 'UCaB', 'UCiB', 'UCaBCiB', 'UCiBCaB']
     t0 = gettime()
-    if args.MF_train:
+    if args.mf_train:
         train_MF(metapaths, 
                 adj_path, 
                 feat_path, 
-                n_factor=20,
-                epoch=[10000, 20000, 20000, 20000, 20000], #, 20000, 10000, 50000, 50000], 
-                lr=[5e-3, 5e-3, 5e-3, 5e-3, 5e-3], #, 5e-3, 5e-3, 7e-3, 7e-3], 
-                reg_user=[5e-1, 5e-1, 5e-1, 5e-1, 5e-1], #, 5e-1, 5e-1, 5e-1, 5e-1], 
-                reg_item=[5e-1, 5e-1, 5e-1, 5e-1, 5e-1], #, 5e-1, 5e-1, 5e-1, 5e-1], 
+                n_factor=args.mf_factor,
+                epoch=[10000, 50000, 30000, 40000, 20000], #, 20000, 10000, 50000, 50000], 
+                lr=[5e-3, 3e-3, 3e-3, 3e-3, 5e-3], #, 5e-3, 5e-3, 7e-3, 7e-3], 
+                reg_user=[5e-1, 1e-1, 1e-1, 5e-1, 5e-1], #, 5e-1, 5e-1, 5e-1, 5e-1], 
+                reg_item=[5e-1, 1e-1, 1e-1, 5e-1, 5e-1], #, 5e-1, 5e-1, 5e-1, 5e-1], 
                 cuda=args.cuda)
     t1 = gettime()
     print("time cost: %f" % (t1 - t0))
@@ -285,7 +286,7 @@ if __name__ == "__main__":
     business_ids = set(i for i in range(n_items))
     print("n_users:", n_users, "n_items:", n_items)
     user_features, item_features = load_feature(feat_path, metapaths)
-    train_dataset = FMG_YelpDataset(train_data, user_features, item_features, neg_sample_n=4, mode='train', cuda=args.cuda)
+    train_dataset = FMG_YelpDataset(train_data, user_features, item_features, neg_sample_n=args.negatives, mode='train', cuda=args.cuda)
     valid_dataset = FMG_YelpDataset(valid_data, user_features, item_features, neg_sample_n=20, mode='valid', cuda=args.cuda)
     test_dataset = FMG_YelpDataset(test_data, user_features, item_features, neg_sample_n=20, mode='test', cuda=args.cuda)
     print("time cost: %f" % (gettime() - t0))
@@ -293,12 +294,15 @@ if __name__ == "__main__":
     t0 = gettime()
     print("start training FM...")
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = FactorizationMachine(2*len(metapaths)*args.factor, 20, cuda=args.cuda).to(device)
+    model = FactorizationMachine(2*len(metapaths)*args.mf_factor, args.fm_factor, cuda=args.cuda).to(device)
 
-    train_FM(model, train_dataset, valid_dataset, epochs=10, lr=5e-3, cuda=args.cuda)
+    train_FM(model, train_dataset, valid_dataset, epochs=6, lr=5e-3, cuda=args.cuda)
 
     print("time cost: %f" % (gettime() - t0))
 
     # result: loss gets lower as n_neg gets higher
     # Testing
+    print("------------------test---------------")
     eval(test_dataset, model, nn.CrossEntropyLoss(), 20, cuda=args.cuda)
+    print(model.W)
+    print(model.V)

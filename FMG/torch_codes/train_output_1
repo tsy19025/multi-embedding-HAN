@@ -21,3 +21,5 @@ epoch 8, loss = 0.513262, lr = 0.005000, time cost = 1595.171175
 epoch 9, loss = 0.513262, lr = 0.005000, time cost = 1596.458104
 time cost: 16000.041130
 evaluation: loss: 0.540622, precision@20: 0.252703, recall@20: 0.825680, NDCG: 0.621158
+
+negatives=4, fm_factor=20, mf_factor=20
