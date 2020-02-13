@@ -82,7 +82,7 @@ class MetapathAttentionLayer(nn.Module):
         return sum(metapath_latent * attention.unsqueeze(-1), 1)
 
 class MCRec(nn.Module):
-    def __init__(self, n_type, path_nums, timestamps, latent_dim, path_type, device):
+    def __init__(self, n_type, path_nums, timestamps, latent_dim, path_type, dataset, device):
         super(MCRec, self).__init__()
 
         # print("latent_dim: ", latent_dim)
@@ -123,14 +123,17 @@ class MCRec(nn.Module):
         # paths = len(path_inputs)
         batch_size = user_input.shape[0]
 
-        user_latent = torch.cat([self.user_embedding(user) for user in user_input], -1)
-        user_latent = user_latent.view(batch_size, -1).to(self.device)
+        # user_latent = torch.cat([self.user_embedding(user) for user in user_input], -1)
+        # user_latent = user_latent.view(batch_size, -1).to(self.device)
         # print("user_latent: ", user_latent)
+        user_latent = self.user_embedding(user_input)
+
 
         # print(user_latent.shape)
 
-        item_latent = torch.cat([self.item_embedding(item) for item in item_input], -1)
-        item_latent = item_latent.view(batch_size, -1).to(self.device)
+        item_latent = self.item_embedding(item_input)
+        # item_latent = torch.cat([self.item_embedding(item) for item in item_input], -1)
+        # item_latent = item_latent.view(batch_size, -1).to(self.device)
         # print("item_latent: ", item_latent)
         # print(item_latent.shape)
         
