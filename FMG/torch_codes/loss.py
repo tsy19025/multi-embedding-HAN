@@ -1,9 +1,9 @@
-import numpy as np
-import torch
-import torch.nn.functional as F
+# import numpy as np
+# import torch
+# import torch.nn.functional as F
 from torch import nn, norm
 
-from utils import *
+# from utils_fmg import *
 
 
 class MFLoss(nn.Module):
@@ -28,23 +28,23 @@ class MFLoss(nn.Module):
             self.reg_user * norm(user_mat, p='fro') + \
             self.reg_item * norm(item_mat, p='fro')
 
-class CrossEntropyLossForFM(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, input, target):
-        r"""
-        We first put input into a sigmoid
-        Parameters
-        ----------
-        input: torch.Tensor with size [bsz].
-            each element is an FM output.
-
-        target: torch.Tensor with size [bsz].
-            each element is a label of one-class
-
-        Return
-        ------
-        loss: torch.Tensor
-        """
-        pass
+# class CrossEntropyLossForFM(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#
+#     def forward(self, input, target):
+#         r"""
+#         We first put input into a sigmoid
+#         Parameters
+#         ----------
+#         input: torch.Tensor with size [bsz].
+#             each element is an FM output.
+#
+#         target: torch.Tensor with size [bsz].
+#             each element is a label of one-class
+#
+#         Return
+#         ------
+#         loss: torch.Tensor
+#         """
+#         pass
