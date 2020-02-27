@@ -1,0 +1,6 @@
+yelp_dataset/adjs
+yelp_dataset/rates
+yelp_dataset/json
+amazon_dataset/Books
+amazon_dataset/Electronics
+amazon_dataset/*.json

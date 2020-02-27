@@ -1,0 +1,5 @@
+1. 根据review数量筛user，筛剩下来的是review数多的user
+2. 根据review数量筛business，筛剩下来的是被review数多的business
+3. 遇到的问题是剩下来的user review过的business和剩下来的business没有交集
+4. 也就是说review数多的user review的都是小众的business
+5. 但4.从概率上说不太可能。概率上来说（直觉上来看也是）review数多的user越有可能review到受欢迎的business？
