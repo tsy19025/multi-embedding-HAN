@@ -8,8 +8,8 @@ import matlab.engine
 
 def parse_args():
     parse = argparse.ArgumentParser(description="Data")
-    # parse.add_argument('--dataset', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
-    parse.add_argument('--dataset', type = str, default = '/home1/tsy/Project/multi-embedding-HAN/tmpdataset/')
+    parse.add_argument('--dataset', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
+    # parse.add_argument('--dataset', type = str, default = '/home1/tsy/Project/multi-embedding-HAN/tmpdataset/')
     return parse.parse_args()
 
 def modify(mat, path):
