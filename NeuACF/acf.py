@@ -62,7 +62,7 @@ def parse_args():
     parse.add_argument('--mat_path', type = str, default = '/home1/tsy/Project/multi-embedding-HAN/NeuACF/mat_tmp/')
     parse.add_argument('--mat', type = list, default = ['U.UBU', 'B.BUB', 'U.UBCiBU', 'B.BCiB', 'U.UBCaBU', 'B.BCaB'])
     # parse.add_argument('--mat', type = list, default = ['U.UBU', 'B.BUB'])
-    parse.add_argument('--epochs', type = int, default = 5)
+    parse.add_argument('--epochs', type = int, default = 10000)
     parse.add_argument('--last_layer_size', type = int, default = 64)
     parse.add_argument('--num_of_layers', type = int, default = 2)
     parse.add_argument('--num_of_neg', type = int, default = 2)
@@ -439,7 +439,10 @@ tf.global_variables_initializer().run()
 
 best_r = 0
 best_epoch = -1
+stop_train = False
 for epoch in range( epochs ): 
+    if stop_train:
+        break
     print( epoch )
     one_epoch_loss = 0.0
     one_epoch_batchnum = 0.0
@@ -544,7 +547,7 @@ for epoch in range( epochs ):
                 
                 if epoch - best_epoch >= args.patience:
                     print("Stop training at epoch", epoch)
-                    break
+                    stop_train = True
 
 sess = tf.Session()
 saver = tf.train.import_meta_graph('model/neuacf-model.meta')
