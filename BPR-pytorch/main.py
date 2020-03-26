@@ -72,7 +72,7 @@ train_dataset = data_utils.BPRData(
 test_dataset = data_utils.BPRData(
 		test_data, user_num, item_num, num_ng=0, is_training=False)
 train_loader = data.DataLoader(train_dataset,
-		batch_size=args.batch_size, shuffle=True, num_workers=4)
+		batch_size=args.batch_size, shuffle=True, num_workers=20)
 # test_loader = data.DataLoader(test_dataset,
 # 		batch_size=args.test_num_ng+1, shuffle=False, num_workers=0)
 test_loader = data.DataLoader(test_dataset,
@@ -110,12 +110,12 @@ for epoch in range(args.epochs):
 		count += 1
 
 	model.eval()
-	PREC, HR, NDCG = evaluate.metrics(model, test_loader, args.top_k)
+	PREC, RECALL, HR, NDCG = evaluate.metrics(model, test_loader, args.top_k)
 
 	elapsed_time = time.time() - start_time
 	print("The time elapse of epoch {:03d}".format(epoch) + " is: " + 
 			time.strftime("%H: %M: %S", time.gmtime(elapsed_time)))
-	print("PREC: {:.3f}\tHR: {:.3f}\tNDCG: {:.3f}".format(PREC, HR, NDCG))
+	print("PREC: {:.3f}\tRECALL: {:.3f}, HR: {:.3f}\tNDCG: {:.3f}".format(PREC, RECALL, HR, NDCG))
 
 	if HR > best_hr:
 		best_hr, best_ndcg, best_epoch = HR, NDCG, epoch

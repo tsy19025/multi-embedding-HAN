@@ -29,9 +29,12 @@ def load_all():
     train_data = [[data['user_id'], data['business_id']] for data in train_data]
 
     # load ratings as a dok matrix
-    train_mat = sp.dok_matrix((user_num, item_num), dtype=np.float32)
+    # train_mat = sp.dok_matrix((user_num, item_num), dtype=np.float32)
+    # for x in train_data:
+    #     train_mat[x[0], x[1]] = 1.0
+    train_mat = [[] for u in range(user_num)]
     for x in train_data:
-        train_mat[x[0], x[1]] = 1.0
+        train_mat[x[0]].append(x[1])
 
     test_data = read_pickle(config.test_negative)
 
@@ -79,14 +82,20 @@ class BPRData(data.Dataset):
         self.features_fill = []
         for x in self.features:
             u, i = x[0], x[1]
-            for t in range(self.num_ng):
-                j = np.random.randint(self.num_item)
-                while (u, j) in self.train_mat:
+            if self.num_ng > 0:
+                for t in range(self.num_ng):
                     j = np.random.randint(self.num_item)
+                    # while (u, j) in self.train_mat:
+                    while j in self.train_mat[u]:
+                        j = np.random.randint(self.num_item)
+                    self.features_fill.append([u, i, j])
+            elif self.num_ng == 0:
+                j = random.choice(self.train_mat[u])
                 self.features_fill.append([u, i, j])
 
     def __len__(self):
-        return self.num_ng * len(self.features) if \
+        num_samples = self.num_ng if self.num_ng > 0 else 1
+        return num_samples * len(self.features) if \
                 self.is_training else len(self.features)
 
     def __getitem__(self, idx):

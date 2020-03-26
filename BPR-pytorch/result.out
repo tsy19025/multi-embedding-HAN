@@ -28,5 +28,8 @@ experiment9: batchsize=4096, epochs=100, lambda=0.01, lr=0.001, num_factors=64, 
 the experiments above all used only 1 positive sample for each user in test
 below will use multiple positive samples and negative samples.
 
-experiment10: batchsize=4096, epochs=100, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
+experiment10: batchsize=4096, epochs=83, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
+    PREC: 0.411     HR: 0.713       NDCG: 0.770   
+
+experiment10: batchsize=4096, epochs=83, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
     
