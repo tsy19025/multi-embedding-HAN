@@ -23,4 +23,5 @@ class BPR(nn.Module):
 
 		prediction_i = (user * item_i).sum(dim=-1)
 		prediction_j = (user * item_j).sum(dim=-1)
+		# print(prediction_i.shape)
 		return prediction_i, prediction_j

@@ -24,3 +24,9 @@ experiment8: batchsize=4096, epochs=100, lambda=0.01, lr=0.001, num_factors=32, 
 
 experiment9: batchsize=4096, epochs=100, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
     End. Best epoch 080: HR = 0.866,        NDCG = 0.553
+
+the experiments above all used only 1 positive sample for each user in test
+below will use multiple positive samples and negative samples.
+
+experiment10: batchsize=4096, epochs=100, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
+    

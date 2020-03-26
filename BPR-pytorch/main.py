@@ -64,17 +64,19 @@ cudnn.benchmark = True
 
 
 ############################## PREPARE DATASET ##########################
-train_data, test_data, user_num ,item_num, train_mat = data_utils.load_all()
+train_data, test_data, train_mat, user_num, item_num = data_utils.load_all()
 
 # construct the train and test datasets
 train_dataset = data_utils.BPRData(
-		train_data, item_num, train_mat, args.num_ng, True)
+		train_data, user_num, item_num, train_mat, num_ng=args.num_ng, is_training=True)
 test_dataset = data_utils.BPRData(
-		test_data, item_num, train_mat, 0, False)
+		test_data, user_num, item_num, num_ng=0, is_training=False)
 train_loader = data.DataLoader(train_dataset,
 		batch_size=args.batch_size, shuffle=True, num_workers=4)
+# test_loader = data.DataLoader(test_dataset,
+# 		batch_size=args.test_num_ng+1, shuffle=False, num_workers=0)
 test_loader = data.DataLoader(test_dataset,
-		batch_size=args.test_num_ng+1, shuffle=False, num_workers=0)
+		batch_size=1, shuffle=False)
 
 ########################### CREATE MODEL #################################
 model = model.BPR(user_num, item_num, args.factor_num)
@@ -92,6 +94,7 @@ for epoch in range(args.epochs):
 	model.train() 
 	start_time = time.time()
 	train_loader.dataset.ng_sample()
+	# print("neg sample time cost:", time.time() - start_time)
 
 	for user, item_i, item_j in train_loader:
 		user = user.cuda()
@@ -107,12 +110,12 @@ for epoch in range(args.epochs):
 		count += 1
 
 	model.eval()
-	HR, NDCG = evaluate.metrics(model, test_loader, args.top_k)
+	PREC, HR, NDCG = evaluate.metrics(model, test_loader, args.top_k)
 
 	elapsed_time = time.time() - start_time
 	print("The time elapse of epoch {:03d}".format(epoch) + " is: " + 
 			time.strftime("%H: %M: %S", time.gmtime(elapsed_time)))
-	print("HR: {:.3f}\tNDCG: {:.3f}".format(np.mean(HR), np.mean(NDCG)))
+	print("PREC: {:.3f}\tHR: {:.3f}\tNDCG: {:.3f}".format(PREC, HR, NDCG))
 
 	if HR > best_hr:
 		best_hr, best_ndcg, best_epoch = HR, NDCG, epoch

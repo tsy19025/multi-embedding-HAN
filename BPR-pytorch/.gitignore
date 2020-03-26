@@ -1,5 +1,0 @@
-data/*
-.vscode/*
-.ipynb_checkpoints/*
-__pycache__/*
-config.py
