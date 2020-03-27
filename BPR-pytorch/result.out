@@ -1,0 +1,35 @@
+experiment1: batch size=4096, epochs=50, lambda=0.001, lr=0.01, num_factors=16
+    End. Best epoch 049: HR = 0.850,        NDCG = 0.539
+
+experiment2: batchsize=1024, epochs=50, lambda=0.001, lr=0.005, num_factors=32
+    End. Best epoch 049: HR = 0.812,        NDCG = 0.494
+
+experiment3: batchsize=4096, epochs=100, lambda=0.001, lr=0.01, num_factors=32
+    HR: 0.861       NDCG: 0.562    
+
+experiment4: batchsize=4096, epochs=60, lambda=0.01, lr=0.01, num_factors=10
+    HR: 0.838       NDCG: 0.522
+
+experiment5: batchsize=4096, epochs=50, lambda=0.01, lr=0.01, num_factors=32
+    End. Best epoch 048: HR = 0.849,        NDCG = 0.532
+
+experiment6: batchsize=4096, epochs=33, lambda=0.1, lr=0.01, num_factors=32, optimizer=Adam
+    HR: 0.736       NDCG: 0.422
+
+experiment7: batchsize=4096, epochs=12, lambda=0.1, lr=0.001, num_factors=32, optimizer=Adam
+    HR: 0.741       NDCG: 0.422
+
+experiment8: batchsize=4096, epochs=100, lambda=0.01, lr=0.001, num_factors=32, optimizer=Adam
+    End. Best epoch 092: HR = 0.861,        NDCG = 0.551
+
+experiment9: batchsize=4096, epochs=100, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
+    End. Best epoch 080: HR = 0.866,        NDCG = 0.553
+
+the experiments above all used only 1 positive sample for each user in test
+below will use multiple positive samples and negative samples.
+
+experiment10: batchsize=4096, epochs=83, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
+    PREC: 0.411     HR: 0.713       NDCG: 0.770   
+
+experiment10: batchsize=4096, epochs=83, lambda=0.01, lr=0.001, num_factors=64, optimizer=Adam
+    
