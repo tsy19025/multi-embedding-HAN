@@ -70,6 +70,7 @@ class Path_Embedding(nn.Module):
         # self.dropout = nn.Dropout(0.5)
     def forward(self, path_input, path_type, type_embedding):
         batch_size, item_size, path_num, timestamp = path_input.shape
+        print(path_input.shape)
         path_input = path_input.view(batch_size*item_size, path_num, timestamp)
         # path_input: batch_size * neg * path_num * timestamp
         outputs = []
@@ -81,7 +82,9 @@ class Path_Embedding(nn.Module):
             input = torch.cat(path).view(timestamp, batch_size*item_size, self.latent_dim).permute([1, 2, 0])
             path = self.conv1d(input)
             path = F.max_pool2d(path, kernel_size = (1, path.shape[-1])).squeeze(-1)
-            # output = self.dropout(path)
+            output = path
+            print(output.shape)
+            sys.exit(0)
             outputs.append(path)
         outputs = torch.cat(outputs, -1).view(path_num, batch_size*item_size, self.latent_dim).permute([1, 2, 0])
         # outputs = self.dropout(outputs)

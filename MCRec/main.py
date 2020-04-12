@@ -27,10 +27,10 @@ def parse_args():
     parse.add_argument('--decay_step', type = int, default = 1)
     parse.add_argument('--log_step', type=int, default=1e2)
     parse.add_argument('--decay', type = float, default = 0.98, help = 'learning rate decay rate')
-    parse.add_argument('--save', type = str, default = '../model/bigdata_modelpara.pth')
+    parse.add_argument('--save', type = str, default = 'model/bigdata_modelpara.pth')
     parse.add_argument('--K', type = int, default = 20)
     parse.add_argument('--mode', type = str, default = 'train')
-    parse.add_argument('--load', type = bool, default = False)
+    parse.add_argument('--load', type = bool, default = True)
     parse.add_argument('--patience', type = int, default = 10)
     return parse.parse_args()
 
@@ -196,7 +196,7 @@ if __name__ == '__main__':
         model.to(device)
     if args.mode == 'train':
         # __, _, _ = valid(model, valid_data_loader, valid_loss_fn)
-        for epoch in range(args.epochs):
+        for epoch in range(best_epoch + 1, args.epochs):
             mean_loss = train_one_epoch(model, train_data_loader, optimizer, loss_fn, epoch)
             # print("epoch:", epoch, "    loss:", mean_loss)
             valid_precision, valid_recall, valid_ndcg = valid(model, valid_data_loader, loss_fn)

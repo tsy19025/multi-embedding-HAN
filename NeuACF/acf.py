@@ -59,19 +59,20 @@ def getNDCG(ranklist, gtItems):
 def parse_args():
     parse = argparse.ArgumentParser(description="Run NeuACF")
     parse.add_argument('--data_path', type = str, default = '/home1/tsy/Project/multi-embedding-HAN/tmpdataset/')
+    # parse.add_argument('--data_path', type = str, default = '/home1/wyf/Projects/gnn4rec/multi-embedding-HAN/yelp_dataset/')
     parse.add_argument('--mat_path', type = str, default = '/home1/tsy/Project/multi-embedding-HAN/NeuACF/mat_tmp/')
-    parse.add_argument('--mat', type = list, default = ['U.UBU', 'B.BUB', 'U.UBCiBU', 'B.BCiB', 'U.UBCaBU', 'B.BCaB'])
-    # parse.add_argument('--mat', type = list, default = ['U.UBU', 'B.BUB'])
+    # parse.add_argument('--mat', type = list, default = ['U.UBU', 'B.BUB', 'U.UBCiBU', 'B.BCiB', 'U.UBCaBU', 'B.BCaB'])
+    parse.add_argument('--mat', type = list, default = ['U.UBU', 'B.BUB'])
     parse.add_argument('--epochs', type = int, default = 10000)
     parse.add_argument('--last_layer_size', type = int, default = 64)
     parse.add_argument('--num_of_layers', type = int, default = 2)
     parse.add_argument('--num_of_neg', type = int, default = 2)
     parse.add_argument('--learn_rate', type = float, default = 0.00005)
-    parse.add_argument('--batch_size', type = int, default = 1024)
+    parse.add_argument('--batch_size', type = int, default = 64)
     parse.add_argument('--mat_select', type = str, default = 'median')
     parse.add_argument('--merge', type = str, default = 'attention')
-    parse.add_argument('--K', type = int, default = 20)
-    parse.add_argument('--patience', type = int, default = 10)
+    parse.add_argument('--K', type = int, default = 10)
+    parse.add_argument('--patience', type = int, default = 15)
     return parse.parse_args()
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -105,6 +106,7 @@ with open(test_data_path, 'rb') as f:
 
 with open(data_path + 'adjs/adj_UB', 'rb') as f:
     adj_UB = pickle.load(f)
+print("read end.")
 
 mat_path = args.mat_path
 U_feature_dir = mat_path + mat_list[0]+".pathsim.feature." + mat_select
@@ -140,7 +142,7 @@ if( len(mat_list) == 6 ):
     
     U_feature_dir4 = mat_path + mat_list[0]+".pathsim.feature."+ mat_select
     I_feature_dir4 = mat_path + mat_list[1]+".pathsim.feature."+ mat_select
-
+'''
 if( len(mat_list) == 4):
     U_feature_dir2 = mat_path + mat_list[2]+".pathsim.feature." + mat_select
     I_feature_dir2 = mat_path + mat_list[3]+".pathsim.feature."+ mat_select
@@ -150,6 +152,7 @@ if( len(mat_list) == 4):
     
     U_feature_dir4 = mat_path + mat_list[2]+".pathsim.feature."+ mat_select
     I_feature_dir4 = mat_path + mat_list[3]+".pathsim.feature."+ mat_select
+'''
 
 
 U_feature = pd.read_csv( U_feature_dir, sep=",", header=None ).fillna( 0 ).as_matrix()
@@ -158,6 +161,8 @@ I_feature = pd.read_csv( I_feature_dir, sep=",", header=None ).fillna( 0 ).as_ma
 print( "# I_feature1 shape:", I_feature.shape  )
 I_feature_num = I_feature.shape[1]
 U_feature_num = U_feature.shape[1]
+# I_feature_num =64
+# U_feature_num = 64
 
 
 U_feature2 = pd.read_csv( U_feature_dir2, sep=",", header=None ).fillna( 0 ).as_matrix()
@@ -209,10 +214,10 @@ def get_train_instances( trian_data, num_negs, adj_UB):
 
 
 
-print( "# Starting Negtive Sample..." )
-user_input, item_input, labels = get_train_instances( train_data, num_negs, adj_UB)
-print( "# All Traing Instances:", len( user_input ) )
-print( "# Negtive Sample Done" )
+# print( "# Starting Negtive Sample..." )
+# user_input, item_input, labels = get_train_instances( train_data, num_negs, adj_UB)
+# print( "# All Traing Instances:", len( user_input ) )
+# print( "# Negtive Sample Done" )
 
 
 def fm( U, I,  U_num, I_num ,k = 5):
@@ -283,8 +288,12 @@ def HIN_MODEL(name,U_embedding, I_embedding, U_feature_num, I_feature_num, hidde
 
 
 def cosineSim( U, I ):
+    print(U.get_shape().as_list())
+    print(I.get_shape().as_list())
     fen_zhi = tf.reduce_sum(U * I, 1, keep_dims=True)
+    print(fen_zhi.get_shape().as_list())
     pred_val = tf.nn.sigmoid( fen_zhi )
+    print(pred_val.get_shape().as_list())
     return pred_val
 
 
@@ -301,17 +310,24 @@ def cosineSim_new( name,U, I ):
     return pred_val
 
 def gen_embedding_matrix( name, U_num, U_feature_num,U_feature, I_num ,I_feature_num, I_feature):
+    U_embedding_matrix = np.array(U_feature)
+    I_embedding_matrix = np.array(I_feature)
+    return U_embedding_matrix, I_embedding_matrix
+'''
     U_embedding_matrix = tf.get_variable(name+"embeddings_u", 
                                      shape=[U_num, U_feature_num], 
-                                     initializer=tf.constant_initializer(np.array(U_feature)),
-                                     trainable=False)
+                                     # initializer=tf.constant_initializer(np.array(U_feature)),
+                                     initializer=tf.contrib.layers.xavier_initializer(),
+                                     trainable=True)
                              
     I_embedding_matrix = tf.get_variable(name+"embeddings_i", 
                                      shape=[I_num, I_feature_num], 
-                                     initializer=tf.constant_initializer(np.array(I_feature)),
-                                     trainable=False)
-    
-    return U_embedding_matrix, I_embedding_matrix
+                                     # initializer=tf.constant_initializer(np.array(I_feature)),
+                                     # trainable=False)
+                                     initializer=tf.contrib.layers.xavier_initializer(),
+                                     trainable = True)
+'''
+# return U_embedding_matrix, I_embedding_matrix
 
 
 tf.reset_default_graph()
@@ -355,14 +371,13 @@ U_embedding_all = tf.concat( [U_embedding,U_embedding2,U_embedding3],1 )
 I_embedding_all = tf.concat( [I_embedding,I_embedding2,I_embedding3],1 )
 
 
-U1, I1 = HIN_MODEL("ob", U_embedding, I_embedding, U_feature_num, I_feature_num, 600)
+U1, I1 = HIN_MODEL("ob", U_embedding, I_embedding, U_feature_num, I_feature_num, 64)
 
-U2, I2 = HIN_MODEL("iui", U_embedding2, I_embedding2, U_feature_num2, I_feature_num2,600)
+U2, I2 = HIN_MODEL("iui", U_embedding2, I_embedding2, U_feature_num2, I_feature_num2, 64)
 
-U3, I3 = HIN_MODEL("ui", U_embedding3, I_embedding3, U_feature_num3, I_feature_num3,600)
+U3, I3 = HIN_MODEL("ui", U_embedding3, I_embedding3, U_feature_num3, I_feature_num3, 64)
 
-U4, I4 = HIN_MODEL("4", U_embedding4, I_embedding4, U_feature_num4, I_feature_num4,600)
-
+U4, I4 = HIN_MODEL("4", U_embedding4, I_embedding4, U_feature_num4, I_feature_num4, 64)
 
 View1 = tf.concat([U1, I1], 1)
 View2 = tf.concat([U2, I2], 1)
@@ -395,7 +410,7 @@ if( len(mat_list) == 8 ):
     if merge == "avg":
         U = 1/4*U1 + 1/4*U2 + 1/4*U3 + 1/4*U4
         I = 1/4*I1 + 1/4*I2 + 1/4*I3 + 1/4*I4
-if( len(mat_list) == 4 or len(mat_list) == 6):
+if( len(mat_list) == 6):
     if merge == "attention":
         U = w1/(w1+w2+w3)*U1 + w2/(w1+w2+w3)*U2 + w3/(w1+w2+w3)*U3
         I = w1/(w1+w2+w3)*I1 + w2/(w1+w2+w3)*I2 + w3/(w1+w2+w3)*I3
@@ -428,13 +443,12 @@ gmf_loss = tf.reduce_mean(
 
 
 loss_all = gmf_loss
-
 train_step = tf.train.AdamOptimizer(learn_rate).minimize(loss_all)
-
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth=True  
 sess = tf.InteractiveSession(config=config)
+# with tf.Graph().as_default():
 tf.global_variables_initializer().run()
 
 best_r = 0
@@ -446,8 +460,9 @@ for epoch in range( epochs ):
     print( epoch )
     one_epoch_loss = 0.0
     one_epoch_batchnum = 0.0
-    user_input, item_input, labels = shuffle(user_input, item_input, labels)
-    print( "# Start Traing...." )
+    user_input, item_input, labels = get_train_instances(train_data, num_negs, adj_UB)
+    # user_input, item_input, labels = shuffle(user_input, item_input, labels)
+    print( "Start Traing...." )
     for index in range( len(user_input) // batch_size + 1 ):
         batch_u =  user_input[index * batch_size:(index + 1) * batch_size]
         batch_i =  item_input[index * batch_size:(index + 1) * batch_size]
@@ -455,6 +470,10 @@ for epoch in range( epochs ):
         _, loss_val, pred_value,w1_ob,w2_ob,w3_ob = sess.run(
             [train_step, gmf_loss, pred_val,w1,w2,w3],
             feed_dict={U_feature_input: batch_u, I_feature_input: batch_i, true_rating: batch_labels})
+        output = np.array(pred_value).reshape((-1))
+        print(output)
+        # print(batch_labels)
+        # print(loss_val)
         
         one_epoch_loss += loss_val
         one_epoch_batchnum += 1.0
@@ -479,15 +498,19 @@ for epoch in range( epochs ):
                     for item in data['neg_business_id']:
                         items.append([item])
                     user = [[user]] * (pos_n + neg_n)
+                    print(user, items)
                     pred_value = sess.run([pred_val], feed_dict={U_feature_input: user, I_feature_input: items})
                     output = np.array(pred_value).reshape((-1))
                     
                     pred_items, indexes = torch.topk(torch.tensor(output), K)
                     indexes = indexes.tolist()
-                    gt_items = range(pos_n)
+                    gt_items = list(range(pos_n))
+                    print(output)
+                    print(indexes, gt_items)
                     p_at_k = getP(indexes, gt_items)
                     r_at_k = getR(indexes, gt_items)
                     ndcg_at_k = getNDCG(indexes, gt_items)
+                    print(p_at_k, r_at_k, ndcg_at_k)
 
                     eval_p.append(p_at_k)
                     eval_r.append(r_at_k)
